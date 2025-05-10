@@ -32,16 +32,19 @@ public class RealMapViewer {
     private static final Logger LOGGER = Logger.getLogger(RealMapViewer.class.getName());
     private static final DecimalFormat COORD_FORMAT = new DecimalFormat("##.######");
     
-    // Default center location for the map (San Francisco)
-    private static final double DEFAULT_LAT = 37.7749;
-    private static final double DEFAULT_LON = -122.4194;
-    private static final int DEFAULT_ZOOM = 13;
+    // Default center location for the map (Switzerland - Center near Bern)
+    private static final double DEFAULT_LAT = 46.8182;
+    private static final double DEFAULT_LON = 8.2275;
+    private static final int DEFAULT_ZOOM = 8;
     
     private WebView webView;
     private WebEngine webEngine;
     private final Pane parentPane;
     private List<Taxi> taxis = new ArrayList<>();
     private VBox infoBox;
+    
+    // Store reference to currently selected taxi
+    private Taxi selectedTaxi;
     
     // Static initializer to avoid "this" escape
     private static final class MapInitializer {
@@ -71,7 +74,66 @@ public class RealMapViewer {
             // When the map is loaded, initialize JavaScript bridge
             viewer.webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
                 if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
-                    viewer.updateTaxis(viewer.taxis);
+                    try {
+                        // Create JavaScript bridge using safe method
+                        viewer.webEngine.executeScript(
+                            "window.javaConnector = {"
+                            + "  showTaxiInfo: function(taxiId) {"
+                            + "    window.location.href = 'java-callback:showTaxiInfo:' + taxiId;"
+                            + "  },"
+                            + "  clearSelectedTaxi: function() {"
+                            + "    window.location.href = 'java-callback:clearSelectedTaxi';"
+                            + "  },"
+                            + "  log: function(message) {"
+                            + "    window.location.href = 'java-callback:log:' + message;"
+                            + "  },"
+                            + "  reportError: function(error) {"
+                            + "    window.location.href = 'java-callback:error:' + error;"
+                            + "  }"
+                            + "};"
+                        );
+                        
+                        // Set location change handler to capture JavaScript callbacks
+                        viewer.webEngine.locationProperty().addListener((loc, oldLoc, newLoc) -> {
+                            if (newLoc != null && newLoc.startsWith("java-callback:")) {
+                                String command = newLoc.substring("java-callback:".length());
+                                
+                                if (command.startsWith("showTaxiInfo:")) {
+                                    String taxiId = command.substring("showTaxiInfo:".length());
+                                    viewer.showTaxiInfo(taxiId);
+                                } else if (command.equals("clearSelectedTaxi")) {
+                                    viewer.clearSelectedTaxi();
+                                } else if (command.startsWith("log:")) {
+                                    String message = command.substring("log:".length());
+                                    LOGGER.info(() -> "JavaScript log: " + message);
+                                } else if (command.startsWith("error:")) {
+                                    String error = command.substring("error:".length());
+                                    LOGGER.severe(() -> "JavaScript error: " + error);
+                                }
+                                
+                                // Reset location to avoid loops
+                                Platform.runLater(() -> viewer.webEngine.getLoadWorker().cancel());
+                            }
+                        });
+                        
+                        // Add global error handler
+                        viewer.webEngine.executeScript(
+                            "window.onerror = function(message, source, lineno, colno, error) { " +
+                            "  if (window.javaConnector) { " +
+                            "    window.javaConnector.reportError(message); " +
+                            "  } " +
+                            "  console.error('JavaScript error: ' + message); " +
+                            "  return true; " +
+                            "};"
+                        );
+                        
+                        // Test if JavaScript bridge is working
+                        viewer.webEngine.executeScript("if (window.javaConnector) { window.javaConnector.log('JavaScript bridge initialized'); }");
+                        
+                        viewer.updateTaxis(viewer.taxis);
+                    } catch (Exception e) {
+                        LOGGER.log(Level.SEVERE, "Error initializing JavaScript bridge", e);
+                    }
                 }
             });
         }
@@ -116,6 +178,12 @@ public class RealMapViewer {
                 .append("            box-shadow: 0 0 15px rgba(0,0,0,0.2);\n")
                 .append("            border-radius: 5px;\n")
                 .append("        }\n")
+                .append("        .selected-taxi {\n")
+                .append("            z-index: 1000 !important;\n")
+                .append("            filter: drop-shadow(0 0 10px #ff9800);\n")
+                .append("            transform: scale(1.2);\n")
+                .append("            transition: all 0.3s ease;\n")
+                .append("        }\n")
                 .append("    </style>\n")
                 .append("    <link rel=\"stylesheet\" href=\"https://unpkg.com/leaflet@1.9.4/dist/leaflet.css\" />\n")
                 .append("    <script src=\"https://unpkg.com/leaflet@1.9.4/dist/leaflet.js\"></script>\n")
@@ -151,19 +219,20 @@ public class RealMapViewer {
                 .append("            maxZoom: 20\n")
                 .append("        });\n")
                 .append("        \n")
-                .append("        // Add satellite view by default with fallback\n")
-                .append("        satelliteAlt.addTo(map);\n")
+                .append("        // Add street view by default\n")
+                .append("        street.addTo(map);\n")
                 .append("        \n")
                 .append("        // Create layer control\n")
                 .append("        var baseMaps = {\n")
-                .append("            \"Satellite\": satelliteAlt,\n")
-                .append("            \"Street\": street\n")
+                .append("            \"Street\": street,\n")
+                .append("            \"Satellite\": satelliteAlt\n")
                 .append("        };\n")
                 .append("        \n")
                 .append("        L.control.layers(baseMaps, null, {position: 'topright'}).addTo(map);\n")
                 .append("        \n")
                 .append("        // Object to store markers\n")
                 .append("        var taxiMarkers = {};\n")
+                .append("        var selectedTaxiId = null;\n")
                 .append("        \n")
                 .append("        // Function to add or update taxi markers\n")
                 .append("        function updateTaxis(taxiData) {\n")
@@ -187,10 +256,10 @@ public class RealMapViewer {
                 .append("                } else {\n")
                 .append("                    // Create new marker with car icon\n")
                 .append("                    var taxiIcon = L.divIcon({\n")
-                .append("                        html: '<svg width=\"32\" height=\"32\" viewBox=\"0 0 32 32\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"16\" cy=\"16\" r=\"16\" fill=\"#3498db\"/><circle cx=\"16\" cy=\"16\" r=\"13.5\" fill=\"#2980b9\"/><g transform=\"scale(0.09) translate(30, 30)\"><path d=\"M232,124l-16-40H40L24,124L8,140v96h24v16c0,13.2,10.8,24,24,24h16c13.2,0,24-10.8,24-24v-16h64v16c0,13.2,10.8,24,24,24h16c13.2,0,24-10.8,24-24v-16h24V140L232,124z\" fill=\"#FFD700\" stroke=\"#222\" stroke-width=\"8\"/><circle cx=\"72\" cy=\"212\" r=\"24\" fill=\"#333\" stroke=\"#222\" stroke-width=\"4\"/><circle cx=\"184\" cy=\"212\" r=\"24\" fill=\"#333\" stroke=\"#222\" stroke-width=\"4\"/><path d=\"M24,124h208\" stroke=\"#333\" stroke-width=\"8\"/><path d=\"M44,88l12-24h144l12,24\" stroke=\"#333\" stroke-width=\"6\" fill=\"none\"/><rect x=\"96\" y=\"84\" width=\"64\" height=\"24\" fill=\"#87CEFA\" stroke=\"#333\" stroke-width=\"4\"/></g></svg>',\n")
-                .append("                        className: '',  // Important: empty to avoid default styling\n")
-                .append("                        iconSize: [32, 32],\n")
-                .append("                        iconAnchor: [16, 16]\n")
+                .append("                        html: '<img src=\"data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgdmlld0JveD0iMCAwIDUxMiA1MTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgICA8IS0tIE9yYW5nZSBDYXIgU1ZHIHJlY3JlYXRpb24gb2YgdGhlIGlzb21ldHJpYyBjYXIgLS0+CiAgICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NiwgMTA2KSBzY2FsZSgwLjgpIj4KICAgICAgICA8IS0tIENhciBCb2R5IC0tPgogICAgICAgIDxwYXRoIGQ9Ik0yNTAgMjAwTDEwMCAzMDBMNDAwIDMwMEw1MDAgMjAwTDI1MCAyMDBaIiBmaWxsPSIjRkY1NzIyIi8+CiAgICAgICAgPCEtLSBDYXIgVG9wIC0tPgogICAgICAgIDxwYXRoIGQ9Ik0yNTAgMjAwTDM3MCAxMDBMNTAwIDIwMEwyNTAgMjAwWiIgZmlsbD0iI0U2NEExOSIvPgogICAgICAgIDwhLS0gTGVmdCBTaWRlIEJvZHkgLS0+CiAgICAgICAgPHBhdGggZD0iTTEwMCAzMDBMMTAwIDM1MEwyMDAgNDAwTDQwMCA0MDBMNDAwIDMwMEwxMDAgMzAwWiIgZmlsbD0iI0ZGNTcyMiIvPgogICAgICAgIDwhLS0gRnJvbnQgQnVtcGVyIC0tPgogICAgICAgIDxwYXRoIGQ9Ik00MDAgMzAwTDQwMCA0MDBMNTAwIDMyMEw1MDAgMjAwTDQwMCAzMDBaIiBmaWxsPSIjQkYzNjBDIi8+CiAgICAgICAgPCEtLSBXaGVlbHMgLS0+CiAgICAgICAgPGNpcmNsZSBjeD0iMTc1IiBjeT0iMzgwIiByPSI0MCIgZmlsbD0iIzQyNDI0MiIvPgogICAgICAgIDxjaXJjbGUgY3g9IjE3NSIgY3k9IjM4MCIgcj0iMjAiIGZpbGw9IiNCREJEQkQiLz4KICAgICAgICA8Y2lyY2xlIGN4PSIzNTAiIGN5PSIzODAiIHI9IjQwIiBmaWxsPSIjNDI0MjQyIi8+CiAgICAgICAgPGNpcmNsZSBjeD0iMzUwIiBjeT0iMzgwIiByPSIyMCIgZmlsbD0iI0JEQkRCRCIvPgogICAgICAgIDwhLS0gV2luZG93cyAtLT4KICAgICAgICA8cGF0aCBkPSJNMjYwIDIyMEwzNzAgMTMwTDQ2MCAyMDBMMjYwIDIyMFoiIGZpbGw9IiM3OTU1NDgiLz4KICAgICAgICA8IS0tIEhlYWRsaWdodHMgLS0+CiAgICAgICAgPHJlY3QgeD0iNDgwIiB5PSIyNTAiIHdpZHRoPSIzMCIgaGVpZ2h0PSIyMCIgZmlsbD0iI0ZGRkZGRiIvPgogICAgICAgIDxyZWN0IHg9IjQ4MCIgeT0iMjkwIiB3aWR0aD0iMzAiIGhlaWdodD0iMjAiIGZpbGw9IiNGRkZGRkYiLz4KICAgICAgICA8IS0tIFNpZGUgRGV0YWlsIC0tPgogICAgICAgIDxyZWN0IHg9IjEyMCIgeT0iMzIwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjQkYzNjBDIi8+CiAgICA8L2c+Cjwvc3ZnPg==\" width=\"36\" height=\"36\" style=\"filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.5));\">',\n")
+                .append("                        className: taxi.id === selectedTaxiId ? 'selected-taxi' : '', \n")
+                .append("                        iconSize: [36, 36],\n")
+                .append("                        iconAnchor: [18, 18]\n")
                 .append("                    });\n")
                 .append("                    \n")
                 .append("                    var marker = L.marker([taxi.lat, taxi.lon], {icon: taxiIcon})\n")
@@ -199,8 +268,13 @@ public class RealMapViewer {
                 .append("                        \n")
                 .append("                    marker.on('click', function() {\n")
                 .append("                        // Call Java method when taxi is clicked\n")
-                .append("                        if (window.javaConnector) {\n")
-                .append("                            window.javaConnector.showTaxiInfo(taxi.id);\n")
+                .append("                        try {\n")
+                .append("                            if (window.javaConnector) {\n")
+                .append("                                window.javaConnector.showTaxiInfo(taxi.id);\n")
+                .append("                                selectTaxi(taxi.id);\n")
+                .append("                            }\n")
+                .append("                        } catch (err) {\n")
+                .append("                            console.error('Error calling Java: ' + err);\n")
                 .append("                        }\n")
                 .append("                    });\n")
                 .append("                    \n")
@@ -216,6 +290,57 @@ public class RealMapViewer {
                 .append("                }\n")
                 .append("            });\n")
                 .append("        }\n")
+                .append("        \n")
+                .append("        // Function to select a taxi and highlight it\n")
+                .append("        function selectTaxi(taxiId) {\n")
+                .append("            // Remove highlight from previously selected taxi\n")
+                .append("            if (selectedTaxiId && taxiMarkers[selectedTaxiId]) {\n")
+                .append("                var oldIcon = taxiMarkers[selectedTaxiId].getIcon();\n")
+                .append("                oldIcon.options.className = '';\n")
+                .append("                taxiMarkers[selectedTaxiId].setIcon(oldIcon);\n")
+                .append("            }\n")
+                .append("            \n")
+                .append("            // Set new selected taxi\n")
+                .append("            selectedTaxiId = taxiId;\n")
+                .append("            \n")
+                .append("            // Highlight the selected taxi\n")
+                .append("            if (taxiMarkers[taxiId]) {\n")
+                .append("                var newIcon = taxiMarkers[taxiId].getIcon();\n")
+                .append("                newIcon.options.className = 'selected-taxi';\n")
+                .append("                taxiMarkers[taxiId].setIcon(newIcon);\n")
+                .append("                \n")
+                .append("                // Center map on the selected taxi\n")
+                .append("                map.panTo(taxiMarkers[taxiId].getLatLng(), {\n")
+                .append("                    animate: true,\n")
+                .append("                    duration: 0.5\n")
+                .append("                });\n")
+                .append("            }\n")
+                .append("        }\n")
+                .append("        \n")
+                .append("        // Function to clear the selected taxi\n")
+                .append("        function clearSelectedTaxi() {\n")
+                .append("            if (selectedTaxiId && taxiMarkers[selectedTaxiId]) {\n")
+                .append("                var oldIcon = taxiMarkers[selectedTaxiId].getIcon();\n")
+                .append("                oldIcon.options.className = '';\n")
+                .append("                taxiMarkers[selectedTaxiId].setIcon(oldIcon);\n")
+                .append("                selectedTaxiId = null;\n")
+                .append("            }\n")
+                .append("        }\n")
+                .append("        \n")
+                .append("        // Add map click handler to unselect taxi\n")
+                .append("        map.on('click', function(e) {\n")
+                .append("            // Only call Java if we had something selected previously\n")
+                .append("            if (selectedTaxiId) {\n")
+                .append("                try {\n")
+                .append("                    if (window.javaConnector) {\n")
+                .append("                        window.javaConnector.clearSelectedTaxi();\n")
+                .append("                    }\n")
+                .append("                } catch (err) {\n")
+                .append("                    console.error('Error calling Java: ' + err);\n")
+                .append("                }\n")
+                .append("            }\n")
+                .append("            clearSelectedTaxi();\n")
+                .append("        });\n")
                 .append("        \n")
                 .append("        // Function to center the map on a specific location\n")
                 .append("        function centerMap(lat, lon, zoom) {\n")
@@ -247,55 +372,102 @@ public class RealMapViewer {
     }
     
     /**
-     * Update the map with a list of taxis to display
-     * @param taxis list of taxis to show on the map
+     * Focus on a specific taxi
+     * @param taxi The taxi to focus on
      */
-    public void updateTaxis(List<Taxi> taxis) {
-        this.taxis = new ArrayList<>(taxis);
+    public void focusOnTaxi(Taxi taxi) {
+        if (taxi == null) return;
         
-        if (webEngine == null) return;
+        // Update selected taxi reference
+        selectedTaxi = taxi;
         
-        // Convert taxis to JSON format
-        StringBuilder json = new StringBuilder("[");
-        boolean first = true;
-        
-        for (Taxi taxi : taxis) {
-            if (!first) json.append(",");
-            first = false;
-            
-            Location location = taxi.getCurrentLocation();
-            double lat = location.getLatitude();
-            double lon = location.getLongitude();
-            
-            json.append("{")
-                .append("\"id\":\"").append(taxi.getId()).append("\",")
-                .append("\"driver\":\"").append(taxi.getDriverName()).append("\",")
-                .append("\"lat\":").append(lat).append(",")
-                .append("\"lon\":").append(lon).append(",")
-                .append("\"carModel\":\"").append(taxi.getCarModel()).append("\",")
-                .append("\"licensePlate\":\"").append(taxi.getLicensePlate()).append("\",")
-                .append("\"address\":\"").append(escapeJavaScript(location.getAddress())).append("\"")
-                .append("}");
-        }
-        
-        json.append("]");
-        
-        // Execute JavaScript to update the markers
+        // Call JavaScript to highlight and focus on taxi
         Platform.runLater(() -> {
-            webEngine.executeScript("updateTaxis('" + json.toString() + "')");
+            try {
+                // Check if selectTaxi function exists
+                Boolean functionExists = (Boolean) webEngine.executeScript(
+                    "typeof selectTaxi === 'function'"
+                );
+                
+                if (Boolean.TRUE.equals(functionExists)) {
+                    String script = "selectTaxi('" + escapeJavaScript(taxi.getId()) + "');";
+                    webEngine.executeScript(script);
+                } else {
+                    LOGGER.warning("selectTaxi function not available yet, skipping taxi focus");
+                }
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "Error focusing on taxi", e);
+            }
         });
     }
     
     /**
-     * Escape special characters for JavaScript
+     * Update the map with a list of taxis to display
      */
-    private String escapeJavaScript(String str) {
-        if (str == null) return "";
-        return str.replace("\\", "\\\\")
-                 .replace("'", "\\'")
-                 .replace("\"", "\\\"")
-                 .replace("\r", "\\r")
-                 .replace("\n", "\\n");
+    public void updateTaxis(List<Taxi> taxis) {
+        this.taxis = new ArrayList<>(taxis); // Store a copy of the taxis
+        
+        Platform.runLater(() -> {
+            try {
+                if (webEngine == null) {
+                    return; // WebEngine not initialized yet
+                }
+                
+                // Check if map is loaded and updateTaxis function exists
+                Boolean functionExists = false;
+                try {
+                    functionExists = (Boolean) webEngine.executeScript(
+                        "typeof updateTaxis === 'function'"
+                    );
+                } catch (Exception e) {
+                    // Function check failed, assume function doesn't exist
+                    LOGGER.log(Level.WARNING, "Failed to check if updateTaxis function exists", e);
+                }
+                
+                if (!Boolean.TRUE.equals(functionExists)) {
+                    LOGGER.warning("updateTaxis function not available yet, skipping update");
+                    return;
+                }
+                
+                StringBuilder taxiJson = new StringBuilder("[");
+                boolean first = true;
+                
+                for (Taxi taxi : taxis) {
+                    if (!first) {
+                        taxiJson.append(",");
+                    }
+                    
+                    // Format location for taxi
+                    Location location = taxi.getCurrentLocation();
+                    double lat = location.getLatitude();
+                    double lon = location.getLongitude();
+                    
+                    // Create JSON object for this taxi
+                    taxiJson.append("{")
+                           .append("\"id\":\"").append(escapeJavaScript(taxi.getId())).append("\",")
+                           .append("\"driver\":\"").append(escapeJavaScript(taxi.getDriverName())).append("\",")
+                           .append("\"lat\":").append(COORD_FORMAT.format(lat)).append(",")
+                           .append("\"lon\":").append(COORD_FORMAT.format(lon)).append("}")
+                    ;
+                    
+                    first = false;
+                }
+                
+                taxiJson.append("]");
+                
+                // Update map with taxi data
+                String script = "updateTaxis('" + taxiJson.toString() + "');";
+                webEngine.executeScript(script);
+                
+                // If there's a selected taxi, keep it selected
+                if (selectedTaxi != null) {
+                    focusOnTaxi(selectedTaxi);
+                }
+                
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "Error updating taxis on map", e);
+            }
+        });
     }
     
     /**
@@ -423,7 +595,20 @@ public class RealMapViewer {
     public void centerMap(double latitude, double longitude, int zoom) {
         if (webEngine != null) {
             Platform.runLater(() -> {
-                webEngine.executeScript("centerMap(" + latitude + ", " + longitude + ", " + zoom + ")");
+                try {
+                    // Check if centerMap function exists
+                    Boolean functionExists = (Boolean) webEngine.executeScript(
+                        "typeof centerMap === 'function'"
+                    );
+                    
+                    if (Boolean.TRUE.equals(functionExists)) {
+                        webEngine.executeScript("centerMap(" + latitude + ", " + longitude + ", " + zoom + ")");
+                    } else {
+                        LOGGER.warning("centerMap function not available yet, skipping map centering");
+                    }
+                } catch (Exception e) {
+                    LOGGER.log(Level.SEVERE, "Error centering map", e);
+                }
             });
         }
     }
@@ -448,8 +633,67 @@ public class RealMapViewer {
     public void setMapType(String mapType) {
         if (webEngine != null) {
             Platform.runLater(() -> {
-                webEngine.executeScript("setMapType('" + mapType + "')");
+                try {
+                    // Check if setMapType function exists
+                    Boolean functionExists = (Boolean) webEngine.executeScript(
+                        "typeof setMapType === 'function'"
+                    );
+                    
+                    if (Boolean.TRUE.equals(functionExists)) {
+                        webEngine.executeScript("setMapType('" + mapType + "')");
+                    } else {
+                        LOGGER.warning("setMapType function not available yet, skipping map type change");
+                    }
+                } catch (Exception e) {
+                    LOGGER.log(Level.SEVERE, "Error setting map type", e);
+                }
             });
         }
+    }
+    
+    /**
+     * Escape special characters for JavaScript
+     */
+    private String escapeJavaScript(String str) {
+        if (str == null) return "";
+        return str.replace("\\", "\\\\")
+                 .replace("'", "\\'")
+                 .replace("\"", "\\\"")
+                 .replace("\r", "\\r")
+                 .replace("\n", "\\n");
+    }
+    
+    /**
+     * Clear the currently selected taxi
+     */
+    public void clearSelectedTaxi() {
+        // Clear the selection
+        selectedTaxi = null;
+        
+        // Remove info box if present
+        if (infoBox != null && infoBox.getParent() != null) {
+            Platform.runLater(() -> {
+                parentPane.getChildren().remove(infoBox);
+            });
+        }
+        
+        // Call JavaScript to clear selection state
+        Platform.runLater(() -> {
+            try {
+                // Check if clearSelectedTaxi function exists
+                Boolean functionExists = (Boolean) webEngine.executeScript(
+                    "typeof clearSelectedTaxi === 'function'"
+                );
+                
+                if (Boolean.TRUE.equals(functionExists)) {
+                    String script = "clearSelectedTaxi();";
+                    webEngine.executeScript(script);
+                } else {
+                    LOGGER.warning("clearSelectedTaxi function not available yet, skipping taxi deselection");
+                }
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "Error clearing selected taxi", e);
+            }
+        });
     }
 } 

@@ -4,8 +4,8 @@ package com.quickride.model;
  * A simple class to represent locations
  */
 public class Location {
-    private final double latitude;
-    private final double longitude;
+    private double latitude;
+    private double longitude;
     private final String address;
     
     public Location(double latitude, double longitude, String address) {
@@ -29,8 +29,24 @@ public class Location {
         return latitude;
     }
     
+    /**
+     * Sets the latitude coordinate
+     * @param latitude the new latitude
+     */
+    public void setLatitude(double latitude) {
+        this.latitude = latitude;
+    }
+    
     public double getLongitude() {
         return longitude;
+    }
+    
+    /**
+     * Sets the longitude coordinate
+     * @param longitude the new longitude
+     */
+    public void setLongitude(double longitude) {
+        this.longitude = longitude;
     }
     
     public String getAddress() {

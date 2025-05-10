@@ -22,7 +22,6 @@ import javafx.stage.Stage;
 /**
  * Controller for the Add Taxi dialog
  */
-@SuppressWarnings("unused")
 public class AddTaxiController {
     private static final Logger LOGGER = Logger.getLogger(AddTaxiController.class.getName());
     
@@ -66,16 +65,13 @@ public class AddTaxiController {
     private ComboBox<String> locationComboBox;
     
     @FXML
-    private Button saveButton;
-    
-    @FXML
     private Button cancelButton;
     
     /**
      * Initialize the controller
      */
     @FXML
-    private void initialize() {
+    public void initialize() {
         // Populate car model dropdown
         carModelComboBox.setItems(FXCollections.observableArrayList(
             "Toyota Prius", "Honda Civic", "Tesla Model 3", "Ford Fusion", "Nissan Leaf",
@@ -101,7 +97,7 @@ public class AddTaxiController {
      * Handle save button click
      */
     @FXML
-    private void handleSave() {
+    public void handleSave() {
         try {
             // Validate inputs
             String driverName = driverNameField.getText().trim();
@@ -167,7 +163,7 @@ public class AddTaxiController {
      * Handle cancel button click
      */
     @FXML
-    private void handleCancel() {
+    public void handleCancel() {
         closeDialog();
     }
     

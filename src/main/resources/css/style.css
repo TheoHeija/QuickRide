@@ -34,18 +34,16 @@
 
 /* Header bar */
 .app-header {
-    -fx-background-color: -fx-light;
-    -fx-border-color: transparent transparent #E2E2E2 transparent;
-    -fx-border-width: 0 0 1px 0;
-    -fx-padding: 15 20;
-    -fx-spacing: 15;
+    -fx-background-color: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+    -fx-padding: 12 18;
     -fx-alignment: center-left;
+    -fx-spacing: 15;
 }
 
-.app-title {
-    -fx-text-fill: -fx-primary;
-    -fx-font-size: 22px;
+.app-header .app-title {
+    -fx-text-fill: white;
     -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 3, 0, 0, 1);
 }
 
 /* Side panel */
@@ -283,17 +281,25 @@
     -fx-background-color: -fx-card-background;
     -fx-background-radius: 12px;
     -fx-border-radius: 12px;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 15, 0, 0, 5);
     -fx-padding: 18;
     -fx-spacing: 10;
 }
 
 .request-ride-form {
     -fx-padding: 25;
+    -fx-background-color: -fx-card-background;
+    -fx-opacity: 0.97;
+}
+
+.request-ride-container {
+    -fx-background-color: transparent;
 }
 
 .fare-estimate {
     -fx-padding: 18 20;
+    -fx-background-color: -fx-card-background;
+    -fx-opacity: 0.97;
 }
 
 .fare-price {
@@ -449,4 +455,10 @@
     -fx-background-color: -fx-secondary;
     -fx-text-fill: white;
     -fx-border-color: -fx-secondary;
+}
+
+/* Separators */
+.content-separator {
+    -fx-opacity: 0.6;
+    -fx-padding: 5 0;
 } 

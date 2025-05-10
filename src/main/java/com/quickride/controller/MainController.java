@@ -3,6 +3,8 @@ package com.quickride.controller;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.quickride.exception.InvalidTaxiException;
 import com.quickride.manager.RideManager;
@@ -12,6 +14,7 @@ import com.quickride.model.Ride;
 import com.quickride.model.RideStatus;
 import com.quickride.model.Taxi;
 import com.quickride.util.RealMapViewer;
+import com.quickride.util.TaxiAnimator;
 import com.quickride.util.TaxiFactory;
 
 import javafx.beans.property.SimpleStringProperty;
@@ -39,8 +42,9 @@ import javafx.stage.Stage;
 /**
  * Controller for the main view
  */
-@SuppressWarnings("unused")
 public class MainController {
+    
+    private static final Logger LOGGER = Logger.getLogger(MainController.class.getName());
     
     /**
      * Default constructor required by FXML loader.
@@ -52,18 +56,7 @@ public class MainController {
     
     private final TaxiManager taxiManager = new TaxiManager();
     private final RideManager rideManager = new RideManager(taxiManager);
-    
-    @FXML
-    private TextField pickupField;
-    
-    @FXML
-    private TextField dropoffField;
-    
-    @FXML
-    private Button requestRideButton;
-    
-    @FXML
-    private Button addTaxiButton;
+    private TaxiAnimator taxiAnimator;
     
     @FXML
     private TableView<Taxi> availableTaxisTable;
@@ -104,7 +97,7 @@ public class MainController {
      * Initialize the controller
      */
     @FXML
-    private void initialize() {
+    public void initialize() {
         System.out.println("MainController initialized");
         
         // Initialize tables
@@ -128,6 +121,9 @@ public class MainController {
         // Add some sample data for demo
         addDemoData();
         
+        // Start taxi animation
+        setupTaxiAnimation();
+        
         // Update status bar
         updateStatusBar();
     }
@@ -138,6 +134,15 @@ public class MainController {
             new SimpleStringProperty(cellData.getValue().getCurrentLocation().getAddress()));
         
         availableTaxisTable.setItems(taxiManager.getObservableAvailableTaxis());
+        
+        // Add row selection listener to focus on selected taxi
+        availableTaxisTable.getSelectionModel().selectedItemProperty().addListener(
+            (obs, oldSelection, newSelection) -> {
+                if (newSelection != null && mapViewer != null) {
+                    mapViewer.focusOnTaxi(newSelection);
+                }
+            }
+        );
     }
     
     private void setupRidesTable() {
@@ -303,8 +308,11 @@ public class MainController {
                 availableTaxis, totalRides));
     }
     
+    /**
+     * Handle request ride button click
+     */
     @FXML
-    private void handleRequestRide() {
+    public void handleRequestRide() {
         try {
             // Load the request ride view
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/views/RequestRideView.fxml"));
@@ -324,12 +332,21 @@ public class MainController {
             // Update UI after dialog closes
             updateStatusBar();
         } catch (IOException e) {
+            // Use proper logging instead of printStackTrace
+            LOGGER.log(Level.SEVERE, "Error loading request ride view", e);
             showError("Error loading request ride view", e);
+        } catch (Exception e) {
+            // Use proper logging instead of printStackTrace
+            LOGGER.log(Level.SEVERE, "Unexpected error", e);
+            showError("Unexpected error", e);
         }
     }
     
+    /**
+     * Handle add taxi button click
+     */
     @FXML
-    private void handleAddTaxi() {
+    public void handleAddTaxi() {
         try {
             // Load the add taxi view
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/views/AddTaxiView.fxml"));
@@ -459,6 +476,29 @@ public class MainController {
                     mapViewer.centerMap(avgLat, avgLon, 14);
                 }
             }
+        }
+    }
+    
+    /**
+     * Set up taxi animation
+     */
+    private void setupTaxiAnimation() {
+        if (mapViewer != null) {
+            List<Taxi> taxis = new ArrayList<>(taxiManager.getObservableAvailableTaxis());
+            taxiAnimator = new TaxiAnimator(taxis, mapViewer);
+            taxiAnimator.startAnimation();
+        }
+    }
+    
+    /**
+     * Clean up resources
+     */
+    public void dispose() {
+        if (taxiAnimator != null) {
+            taxiAnimator.stopAnimation();
+        }
+        if (mapViewer != null) {
+            mapViewer.dispose();
         }
     }
     

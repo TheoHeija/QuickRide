@@ -1,9 +1,10 @@
 package com.quickride.util;
 
-import com.quickride.model.Taxi;
-import javafx.scene.web.WebView;
-
 import java.util.List;
+
+import com.quickride.model.Taxi;
+
+import javafx.scene.web.WebView;
 
 /**
  * Wrapper for a Google Maps implementation that might be used in the future

@@ -5,6 +5,7 @@
 <?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.layout.HBox?>
@@ -17,7 +18,7 @@
     xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.quickride.controller.RequestRideController">
 
     <!-- Map Background (Full Screen) -->
-    <StackPane styleClass="map-view" AnchorPane.topAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0">
+    <StackPane fx:id="mapContainer" styleClass="map-view" AnchorPane.topAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0">
         <children>
             <Label text="Map visualization will appear here" styleClass="map-placeholder" />
         </children>
@@ -32,9 +33,9 @@
     </HBox>
 
     <!-- Main Ride Request Card -->
-    <VBox styleClass="floating-card, request-ride-form" spacing="16" AnchorPane.topAnchor="70.0" AnchorPane.leftAnchor="20.0" AnchorPane.rightAnchor="20.0">
+    <VBox styleClass="floating-card request-ride-form" spacing="16" AnchorPane.topAnchor="70.0" AnchorPane.leftAnchor="20.0" AnchorPane.rightAnchor="20.0">
         <children>
-            <!-- Location Selection -->
+            <!-- Location Selection with improved styling -->
             <VBox spacing="12">
                 <children>
                     <Label text="PICKUP LOCATION" styleClass="input-label" />
@@ -49,24 +50,37 @@
                 </children>
             </VBox>
 
-            <!-- Passenger Details -->
+            <!-- Separator with style -->
+            <Separator styleClass="content-separator" />
+
+            <!-- Passenger Details with improved styling -->
             <VBox spacing="12">
                 <children>
                     <Label text="YOUR NAME" styleClass="input-label" />
                     <TextField fx:id="customerNameField" promptText="Enter your name" styleClass="location-input" />
+
+                    <Label text="PHONE NUMBER" styleClass="input-label">
+                        <VBox.margin>
+                            <Insets top="8.0" />
+                        </VBox.margin>
+                    </Label>
+                    <TextField fx:id="phoneNumberField" promptText="+41 XX XXX XX XX" styleClass="location-input" />
                 </children>
             </VBox>
 
-            <!-- Ride Options -->
+            <!-- Separator with style -->
+            <Separator styleClass="content-separator" />
+
+            <!-- Ride Options with modern styling -->
             <VBox spacing="12">
                 <children>
                     <Label text="RIDE OPTIONS" styleClass="input-label" />
 
-                    <HBox styleClass="ride-options">
+                    <HBox styleClass="ride-options" spacing="10">
                         <children>
-                            <Button styleClass="ride-type-button, active" text="Economy" />
-                            <Button styleClass="ride-type-button" text="Comfort" />
-                            <Button styleClass="ride-type-button" text="Premium" />
+                            <Button fx:id="economyButton" styleClass="ride-type-button active" text="Economy" onAction="#handleRideTypeSelection" />
+                            <Button fx:id="comfortButton" styleClass="ride-type-button" text="Comfort" onAction="#handleRideTypeSelection" />
+                            <Button fx:id="premiumButton" styleClass="ride-type-button" text="Premium" onAction="#handleRideTypeSelection" />
                         </children>
                     </HBox>
 
@@ -81,10 +95,22 @@
                             <CheckBox fx:id="nearestTaxiCheckBox" selected="true" />
                         </children>
                     </HBox>
+
+                    <HBox styleClass="option-toggle" alignment="CENTER_LEFT" spacing="15.0">
+                        <children>
+                            <VBox HBox.hgrow="ALWAYS">
+                                <children>
+                                    <Label text="Schedule ride for later" styleClass="option-label" />
+                                    <Label text="Book your ride in advance" styleClass="option-description" wrapText="true" />
+                                </children>
+                            </VBox>
+                            <CheckBox fx:id="scheduleRideCheckBox" />
+                        </children>
+                    </HBox>
                 </children>
             </VBox>
 
-            <!-- Action Buttons -->
+            <!-- Action Buttons with improved styling -->
             <HBox styleClass="action-buttons">
                 <children>
                     <Button fx:id="requestButton" mnemonicParsing="false" onAction="#handleRequestRide" text="REQUEST RIDE" styleClass="request-ride-button" HBox.hgrow="ALWAYS" />
@@ -93,13 +119,13 @@
         </children>
     </VBox>
 
-    <!-- Fare Estimate Panel -->
-    <VBox styleClass="floating-card, fare-estimate" AnchorPane.bottomAnchor="20.0" AnchorPane.leftAnchor="20.0" AnchorPane.rightAnchor="20.0">
+    <!-- Fare Estimate Panel with improved styling -->
+    <VBox styleClass="floating-card fare-estimate" AnchorPane.bottomAnchor="20.0" AnchorPane.leftAnchor="20.0" AnchorPane.rightAnchor="20.0">
         <children>
             <Label text="FARE ESTIMATE" styleClass="input-label" />
             <HBox alignment="CENTER_LEFT" spacing="15.0">
                 <children>
-                    <Label text="$12 - $15" styleClass="fare-price" />
+                    <Label text="CHF 12 - 15" styleClass="fare-price" />
                     <Label text="• 10 min" styleClass="eta-estimate" />
                 </children>
             </HBox>
