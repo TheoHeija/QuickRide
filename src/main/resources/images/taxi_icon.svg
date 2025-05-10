@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none"
+    xmlns="http://www.w3.org/2000/svg">
+    <!-- Background Circle -->
+    <circle cx="256" cy="256" r="256" fill="#3498db"/>
+
+    <!-- Inner Circle -->
+    <circle cx="256" cy="256" r="220" fill="#2980b9"/>
+
+    <!-- Taxi Icon -->
+    <g transform="translate(96, 96) scale(1.25)">
+        <!-- Taxi Body -->
+        <path d="M232,124l-16-40H40L24,124L8,140v96h24v16c0,13.2,10.8,24,24,24h16c13.2,0,24-10.8,24-24v-16h64v16c0,13.2,10.8,24,24,24h16c13.2,0,24-10.8,24-24v-16h24V140L232,124z" fill="#FFD700" stroke="#222" stroke-width="8"/>
+
+        <!-- Wheels -->
+        <circle cx="72" cy="212" r="24" fill="#333" stroke="#222" stroke-width="4"/>
+        <circle cx="184" cy="212" r="24" fill="#333" stroke="#222" stroke-width="4"/>
+        <circle cx="72" cy="212" r="8" fill="#888"/>
+        <circle cx="184" cy="212" r="8" fill="#888"/>
+
+        <!-- Details -->
+        <path d="M24,124h208" stroke="#333" stroke-width="8"/>
+        <path d="M44,88l12-24h144l12,24" stroke="#333" stroke-width="6" fill="none"/>
+
+        <!-- Windows -->
+        <rect x="96" y="84" width="64" height="24" fill="#87CEFA" stroke="#333" stroke-width="4"/>
+        <path d="M52,124v-36h16" stroke="#333" stroke-width="4" fill="none"/>
+        <path d="M204,124v-36h-16" stroke="#333" stroke-width="4" fill="none"/>
+    </g>
+
+    <!-- QuickRide Text -->
+    <text x="256" y="420" font-family="Arial, sans-serif" font-size="40" font-weight="bold" text-anchor="middle" fill="white">QUICKRIDE</text>
+</svg> 

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="600.0" prefWidth="450.0" styleClass="request-ride-container"
+    xmlns="http://javafx.com/javafx/17"
+    xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.quickride.controller.RequestRideController">
+
+    <!-- Map Background (Full Screen) -->
+    <StackPane styleClass="map-view" AnchorPane.topAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0">
+        <children>
+            <Label text="Map visualization will appear here" styleClass="map-placeholder" />
+        </children>
+    </StackPane>
+
+    <!-- Header -->
+    <HBox styleClass="app-header" AnchorPane.topAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0">
+        <children>
+            <Button fx:id="backButton" styleClass="icon-button" mnemonicParsing="false" onAction="#handleCancel" text="←" />
+            <Label text="Request Ride" styleClass="app-title" />
+        </children>
+    </HBox>
+
+    <!-- Main Ride Request Card -->
+    <VBox styleClass="floating-card, request-ride-form" spacing="16" AnchorPane.topAnchor="70.0" AnchorPane.leftAnchor="20.0" AnchorPane.rightAnchor="20.0">
+        <children>
+            <!-- Location Selection -->
+            <VBox spacing="12">
+                <children>
+                    <Label text="PICKUP LOCATION" styleClass="input-label" />
+                    <ComboBox fx:id="pickupLocationComboBox" maxWidth="Infinity" styleClass="location-input" />
+
+                    <Label text="DROPOFF LOCATION" styleClass="input-label">
+                        <VBox.margin>
+                            <Insets top="8.0" />
+                        </VBox.margin>
+                    </Label>
+                    <ComboBox fx:id="dropoffLocationComboBox" maxWidth="Infinity" styleClass="location-input" />
+                </children>
+            </VBox>
+
+            <!-- Passenger Details -->
+            <VBox spacing="12">
+                <children>
+                    <Label text="YOUR NAME" styleClass="input-label" />
+                    <TextField fx:id="customerNameField" promptText="Enter your name" styleClass="location-input" />
+                </children>
+            </VBox>
+
+            <!-- Ride Options -->
+            <VBox spacing="12">
+                <children>
+                    <Label text="RIDE OPTIONS" styleClass="input-label" />
+
+                    <HBox styleClass="ride-options">
+                        <children>
+                            <Button styleClass="ride-type-button, active" text="Economy" />
+                            <Button styleClass="ride-type-button" text="Comfort" />
+                            <Button styleClass="ride-type-button" text="Premium" />
+                        </children>
+                    </HBox>
+
+                    <HBox styleClass="option-toggle" alignment="CENTER_LEFT" spacing="15.0">
+                        <children>
+                            <VBox HBox.hgrow="ALWAYS">
+                                <children>
+                                    <Label text="Use nearest available taxi" styleClass="option-label" />
+                                    <Label text="Find the taxi closest to your location" styleClass="option-description" wrapText="true" />
+                                </children>
+                            </VBox>
+                            <CheckBox fx:id="nearestTaxiCheckBox" selected="true" />
+                        </children>
+                    </HBox>
+                </children>
+            </VBox>
+
+            <!-- Action Buttons -->
+            <HBox styleClass="action-buttons">
+                <children>
+                    <Button fx:id="requestButton" mnemonicParsing="false" onAction="#handleRequestRide" text="REQUEST RIDE" styleClass="request-ride-button" HBox.hgrow="ALWAYS" />
+                </children>
+            </HBox>
+        </children>
+    </VBox>
+
+    <!-- Fare Estimate Panel -->
+    <VBox styleClass="floating-card, fare-estimate" AnchorPane.bottomAnchor="20.0" AnchorPane.leftAnchor="20.0" AnchorPane.rightAnchor="20.0">
+        <children>
+            <Label text="FARE ESTIMATE" styleClass="input-label" />
+            <HBox alignment="CENTER_LEFT" spacing="15.0">
+                <children>
+                    <Label text="$12 - $15" styleClass="fare-price" />
+                    <Label text="• 10 min" styleClass="eta-estimate" />
+                </children>
+            </HBox>
+        </children>
+    </VBox>
+</AnchorPane> 
