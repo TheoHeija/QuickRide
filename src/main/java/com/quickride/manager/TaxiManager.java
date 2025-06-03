@@ -1,11 +1,17 @@
 package com.quickride.manager;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
+import java.util.Set;
+
 import com.quickride.exception.InvalidTaxiException;
 import com.quickride.exception.NoTaxiAvailableException;
 import com.quickride.model.Location;
 import com.quickride.model.Taxi;
 
-import java.util.*;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 
@@ -51,11 +57,11 @@ public class TaxiManager {
             throw new InvalidTaxiException("License plate cannot be empty");
         }
         
-        // Check if taxi with same license plate already exists
+        // Check if taxi with same license plate already exist
         for (Taxi existingTaxi : allTaxis) {
             if (existingTaxi.getLicensePlate().equals(taxi.getLicensePlate())) {
                 throw new InvalidTaxiException("A taxi with license plate " + 
-                                               taxi.getLicensePlate() + " already exists");
+                                             taxi.getLicensePlate() + " already exists");
             }
         }
         

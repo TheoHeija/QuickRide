@@ -64,14 +64,12 @@
 
                 <!-- Where to? Section -->
                 <VBox spacing="10" styleClass="ride-request-card">
-                    <Label text="Where to?" styleClass="section-title">
+                    <Label text="Book a Ride" styleClass="section-title">
                         <font>
                             <Font size="18.0" />
                         </font>
                     </Label>
-                    <TextField fx:id="pickupField" promptText="Pickup location" styleClass="location-field" />
-                    <TextField fx:id="dropoffField" promptText="Dropoff location" styleClass="location-field" />
-                    <Button fx:id="requestRideButton" onAction="#handleRequestRide" styleClass="request-button" text="REQUEST A RIDE" />
+                    <Button fx:id="requestRideButton" onAction="#handleRequestRide" styleClass="request-button" text="REQUEST NEW RIDE" maxWidth="Infinity" />
                 </VBox>
 
                 <!-- Available Taxis -->
@@ -90,7 +88,6 @@
                             <TableColumn fx:id="availLocationColumn" prefWidth="170.0" text="Location" />
                         </columns>
                     </TableView>
-                    <Button fx:id="addTaxiButton" onAction="#handleAddTaxi" styleClass="secondary-button" text="ADD TAXI" />
                 </VBox>
 
                 <!-- Recent Rides -->

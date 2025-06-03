@@ -1,0 +1,507 @@
+/* modern_style.css */
+
+/* --- Base and Root Styles --- */
+.root {
+    -fx-font-family: "System"; /* Or "Inter", "Roboto", "Open Sans" if available and licensed */
+    -fx-base: #F5F5F7; /* Light gray base for overall theme */
+    -fx-background: -fx-base;
+    -fx-control-inner-background: white;
+    -fx-text-background-color: #333333; /* Dark gray for text, not pure black */
+
+    /* Primary Color Scheme */
+    -fx-primary: #007AFF; /* Example: Apple Blue */
+    -fx-primary-light: #58AFFF;
+    -fx-primary-dark: #0056B3;
+
+    /* Accent Color (Optional) */
+    -fx-accent: #FF9500; /* Example: Orange for highlights or secondary actions */
+
+    /* Status Colors */
+    -fx-success: #34C759;
+    -fx-warning: #FFCC00;
+    -fx-danger: #FF3B30;
+    
+    /* Additional colors for enhanced UI */
+    -fx-light-gray: #F8F9FA;
+    -fx-medium-gray: #6C757D;
+    -fx-border-light: #E9ECEF;
+}
+
+/* --- General Controls --- */
+.label {
+    -fx-text-fill: -fx-text-background-color;
+}
+
+.button {
+    -fx-background-color: -fx-primary;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-padding: 8px 16px;
+    -fx-background-radius: 6px;
+    -fx-border-radius: 6px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);
+    -fx-cursor: hand;
+}
+.button:hover {
+    -fx-background-color: -fx-primary-light;
+}
+.button:pressed {
+    -fx-background-color: -fx-primary-dark;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 5, 0, 0, 2);
+}
+
+.text-field, .combo-box {
+    -fx-background-color: -fx-control-inner-background;
+    -fx-border-color: #D1D1D6; /* Light gray border */
+    -fx-border-width: 1px;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-padding: 8px 12px;
+    -fx-font-size: 14px;
+}
+.text-field:focused, .combo-box:focused {
+    -fx-border-color: -fx-primary;
+    -fx-effect: dropshadow(gaussian, derive(-fx-primary, 70%), 8, 0, 0, 0); /* Softer focus glow */
+}
+.combo-box .arrow-button .arrow {
+    -fx-background-color: -fx-text-background-color;
+}
+
+.check-box .box {
+    -fx-background-color: white;
+    -fx-border-color: #D1D1D6;
+    -fx-border-radius: 4px;
+}
+.check-box:selected .mark {
+    -fx-background-color: -fx-primary;
+}
+.check-box:selected .box {
+    -fx-border-color: -fx-primary;
+}
+
+.separator .line {
+    -fx-border-color: #E5E5EA; /* Lighter separator line */
+    -fx-border-width: 1px;
+}
+
+/* --- App Specific Styles from RequestRideView.fxml --- */
+
+/* Main container for the ride request view with beautiful gradient background */
+.request-ride-container {
+    -fx-background-color: linear-gradient(to bottom, #667eea 0%, #764ba2 100%); /* Beautiful gradient background */
+}
+
+/* Scrollable content area */
+.request-ride-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+.request-ride-scroll .viewport {
+    -fx-background-color: transparent;
+}
+.request-ride-scroll .scroll-bar:vertical {
+    -fx-background-color: transparent;
+    -fx-padding: 0px 2px 0px 2px;
+}
+.request-ride-scroll .scroll-bar:vertical .track {
+    -fx-background-color: rgba(255,255,255,0.1);
+    -fx-background-radius: 2px;
+}
+.request-ride-scroll .scroll-bar:vertical .thumb {
+    -fx-background-color: rgba(255,255,255,0.3);
+    -fx-background-radius: 2px;
+}
+.request-ride-scroll .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: rgba(255,255,255,0.5);
+}
+
+/* Header styles with improved layout */
+.app-header {
+    -fx-background-color: rgba(255,255,255,0.95); /* Semi-transparent white header */
+    -fx-padding: 14px 20px;
+    -fx-alignment: center-left;
+    -fx-spacing: 16px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 3);
+    -fx-border-color: transparent transparent rgba(0,0,0,0.1) transparent;
+    -fx-border-width: 0px 0px 1px 0px;
+}
+.app-header .app-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: 600;
+    -fx-text-fill: -fx-text-background-color;
+}
+.app-header .icon-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-text-background-color;
+    -fx-font-size: 24px; /* Larger for better touch target */
+    -fx-padding: 8px;
+    -fx-effect: none;
+    -fx-background-radius: 6px;
+}
+.app-header .icon-button:hover {
+    -fx-background-color: rgba(0,0,0,0.1); /* Slight hover for transparent buttons */
+}
+
+/* Loading indicator */
+.app-header .progress-indicator {
+    -fx-progress-color: -fx-primary;
+}
+
+/* Floating card for forms with enhanced styling */
+.floating-card {
+    -fx-background-color: white;
+    -fx-padding: 0px; /* Remove default padding, use child padding */
+    -fx-background-radius: 16px; /* More rounded corners for modern look */
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 25, 0, 0, 10);
+    -fx-border-color: rgba(255,255,255,0.2);
+    -fx-border-width: 1px;
+    -fx-border-radius: 16px;
+    -fx-margin: 20px;
+}
+
+.request-ride-form {
+    /* Specific spacing for the main form card */
+    -fx-alignment: top-center;
+}
+
+/* Location Section Styling */
+.location-section {
+    -fx-background-color: #F8F9FA;
+    -fx-background-radius: 12px;
+    -fx-padding: 14px;
+}
+
+.location-dot {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+.pickup-dot {
+    -fx-text-fill: -fx-success; /* Green for pickup */
+}
+.dropoff-dot {
+    -fx-text-fill: -fx-danger; /* Red for dropoff */
+}
+
+.location-separator {
+    -fx-font-size: 18px;
+    -fx-text-fill: -fx-medium-gray;
+    -fx-font-weight: bold;
+}
+
+/* Enhanced Input Styling */
+.location-input, .modern-input {
+    -fx-background-color: white;
+    -fx-border-color: -fx-border-light;
+    -fx-border-width: 1px;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-padding: 10px 14px;
+    -fx-font-size: 14px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 4, 0, 0, 2);
+}
+.location-input:focused, .modern-input:focused {
+    -fx-border-color: -fx-primary;
+    -fx-effect: dropshadow(gaussian, derive(-fx-primary, 80%), 8, 0, 0, 0);
+}
+
+/* Section Headers and Labels */
+.section-header {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-medium-gray;
+    -fx-text-transform: uppercase;
+    -fx-letter-spacing: 0.8px;
+}
+
+.field-label {
+    -fx-font-size: 13px;
+    -fx-font-weight: 500;
+    -fx-text-fill: -fx-text-background-color;
+}
+
+.input-label {
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-medium-gray;
+    -fx-text-transform: uppercase;
+    -fx-letter-spacing: 0.5px;
+}
+
+/* Ride Type Card Styling */
+.ride-type-section {
+    /* Container for ride type selection */
+}
+
+.ride-type-container {
+    -fx-background-color: transparent;
+}
+
+.ride-type-card {
+    -fx-background-color: white;
+    -fx-border-color: -fx-border-light;
+    -fx-border-width: 2px;
+    -fx-border-radius: 10px;
+    -fx-background-radius: 10px;
+    -fx-padding: 12px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.06), 6, 0, 0, 2);
+    -fx-cursor: hand;
+    -fx-alignment: center-left;
+}
+
+.ride-type-card:hover {
+    -fx-border-color: derive(-fx-primary, 40%);
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 4);
+}
+
+.ride-type-card.active {
+    -fx-border-color: -fx-primary;
+    -fx-background-color: derive(-fx-primary, 95%);
+    -fx-effect: dropshadow(gaussian, derive(-fx-primary, 60%), 10, 0, 0, 4);
+}
+
+.ride-type-title {
+    -fx-font-size: 15px;
+    -fx-font-weight: 600;
+    -fx-text-fill: -fx-text-background-color;
+}
+
+.ride-type-description {
+    -fx-font-size: 12px;
+    -fx-text-fill: -fx-medium-gray;
+    -fx-font-weight: normal;
+}
+
+.ride-type-price {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-background-color;
+}
+
+.ride-type-eta {
+    -fx-font-size: 11px;
+    -fx-text-fill: -fx-success;
+    -fx-font-weight: 500;
+}
+
+/* Ride Options Container */
+.ride-options-container {
+    -fx-background-color: #F8F9FA;
+    -fx-background-radius: 8px;
+    -fx-padding: 10px;
+}
+
+/* Option toggle (e.g., for CheckBox sections) */
+.option-toggle {
+    -fx-padding: 8px 0; /* Vertical padding for each option toggle HBox */
+}
+.option-label {
+    -fx-font-size: 14px;
+    -fx-font-weight: 500;
+    -fx-text-fill: -fx-text-background-color;
+}
+.option-description {
+    -fx-font-size: 12px;
+    -fx-text-fill: -fx-medium-gray;
+}
+
+/* Modern Checkbox Styling */
+.modern-checkbox .box {
+    -fx-background-color: white;
+    -fx-border-color: -fx-border-light;
+    -fx-border-width: 2px;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-min-width: 18px;
+    -fx-min-height: 18px;
+}
+.modern-checkbox:selected .box {
+    -fx-background-color: -fx-primary;
+    -fx-border-color: -fx-primary;
+}
+.modern-checkbox:selected .mark {
+    -fx-background-color: white;
+    -fx-shape: "M2 6l3 3 7-7";
+}
+
+/* Action Section */
+.action-section {
+    -fx-alignment: center;
+}
+
+.primary-action {
+    -fx-background-color: -fx-primary;
+    -fx-text-fill: white;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-padding: 14px 24px;
+    -fx-background-radius: 12px;
+    -fx-border-radius: 12px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 12, 0, 0, 4);
+    -fx-cursor: hand;
+}
+.primary-action:hover {
+    -fx-background-color: -fx-primary-light;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 16, 0, 0, 6);
+}
+.primary-action:pressed {
+    -fx-background-color: -fx-primary-dark;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 8, 0, 0, 2);
+}
+
+/* Inline Fare Display */
+.fare-summary {
+    -fx-background-color: rgba(248,249,250,0.8);
+    -fx-background-radius: 8px;
+    -fx-padding: 6px 14px;
+}
+
+.fare-price-inline {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-background-color;
+}
+
+.eta-estimate-inline {
+    -fx-font-size: 13px;
+    -fx-text-fill: -fx-success;
+    -fx-font-weight: 500;
+}
+
+.separator-dot {
+    -fx-font-size: 13px;
+    -fx-text-fill: -fx-medium-gray;
+}
+
+/* Content Separator */
+.content-separator .line {
+    -fx-border-color: rgba(233,236,239,0.6);
+    -fx-border-width: 1px;
+}
+
+/* TableView general styling */
+.table-view {
+    -fx-background-color: white;
+    -fx-border-color: #E0E0E0;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 5, 0, 0, 2);
+}
+.table-view .column-header-background {
+    -fx-background-color: #F7F7F7; /* Light header background */
+    -fx-border-color: transparent transparent #E0E0E0 transparent; /* Bottom border for header */
+}
+.table-view .column-header .label {
+    -fx-text-fill: -fx-text-background-color;
+    -fx-font-weight: bold;
+    -fx-padding: 8px 12px;
+}
+.table-view .table-cell {
+    -fx-padding: 8px 12px;
+    -fx-border-color: transparent transparent #F0F0F0 transparent; /* Light cell separator */
+}
+.table-view .table-row-cell:selected {
+    -fx-background-color: derive(-fx-primary, 80%); /* Light primary for selection */
+}
+
+/* Status indicator styling from MainView */
+.status-indicator {
+    -fx-padding: 3px 8px;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 4px;
+    -fx-text-fill: white;
+}
+.status-requested { -fx-background-color: #FF9500; } /* Orange */
+.status-assigned { -fx-background-color: #007AFF; } /* Blue */
+.status-in-progress { -fx-background-color: #34C759; } /* Green */
+.status-completed { -fx-background-color: #8E8E93; } /* Gray */
+.status-cancelled { -fx-background-color: #FF3B30; } /* Red */
+
+/* AddTaxiView & MainView specific styling for consistency */
+.dialog-pane .button-bar .container {
+    -fx-padding: 10px;
+}
+
+/* Ensure main content areas have some padding if they directly contain cards */
+.main-content-area {
+    -fx-padding: 20px;
+}
+
+/* Styles for MainView.fxml specific elements */
+.map-control-button {
+    -fx-background-color: white; /* Or a very light gray */
+    -fx-text-fill: -fx-text-background-color;
+    -fx-font-weight: normal;
+    -fx-padding: 6px 12px;
+    -fx-background-radius: 4px;
+    -fx-border-radius: 4px;
+    -fx-border-color: #D1D1D6;
+    -fx-border-width: 1px;
+    -fx-effect: none; /* Flatter look for map controls */
+}
+.map-control-button:hover {
+    -fx-background-color: #EFEFF4; /* Light hover */
+    -fx-border-color: #C0C0C0;
+}
+.map-control-button.active { /* If you have an active state for map type buttons */
+    -fx-background-color: -fx-primary;
+    -fx-text-fill: white;
+    -fx-border-color: -fx-primary-dark;
+}
+
+.secondary-button {
+    -fx-background-color: #EFEFF4; /* Light gray for secondary actions */
+    -fx-text-fill: -fx-primary; /* Primary color text for contrast */
+    -fx-font-weight: bold;
+    -fx-border-color: #D1D1D6;
+    -fx-border-width: 1px;
+    -fx-effect: none; /* Typically flatter than primary buttons */
+}
+.secondary-button:hover {
+    -fx-background-color: #E5E5EA;
+    -fx-border-color: #C0C0C0;
+}
+.secondary-button:pressed {
+    -fx-background-color: #D1D1D6;
+}
+
+/* Adjusting request-button from MainView.fxml if it needs to be primary */
+.request-button { /* Assuming this is used for the main Request New Ride button */
+    -fx-background-color: -fx-primary;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-padding: 10px 16px; /* Make it prominent */
+    -fx-pref-height: 40px;
+}
+.request-button:hover {
+    -fx-background-color: -fx-primary-light;
+}
+.request-button:pressed {
+    -fx-background-color: -fx-primary-dark;
+}
+
+/* Styling for the main app title in MainView header */
+.app-header .app-title { /* Already exists in modern_style.css, ensure it matches if MainView uses it */
+    -fx-font-size: 22px; /* Example, adjust as needed */
+    -fx-font-weight: bold;
+}
+
+/* Styling for section titles in MainView side panel */
+.section-title {
+    -fx-font-size: 16px; /* Example */
+    -fx-font-weight: bold;
+    -fx-padding: 0 0 8px 0;
+    -fx-text-fill: -fx-text-background-color;
+}
+
+/* Status bar styling */
+.status-bar {
+    -fx-background-color: #F7F7F7; /* Light background for status bar */
+    -fx-padding: 8px 12px;
+    -fx-border-color: #E0E0E0 transparent transparent transparent; /* Top border */
+    -fx-border-width: 1px;
+}
+.status-bar .label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #555555;
+} 

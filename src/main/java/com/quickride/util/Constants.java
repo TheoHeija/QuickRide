@@ -17,7 +17,7 @@ public class Constants {
     public static final double APP_HEIGHT = 700;
     
     // Styling
-    public static final String CSS_FILE = "/css/style.css";
+    public static final String CSS_FILE = "/css/modern_style.css";
     
     // Taxi types
     public static final String[] CAR_MODELS = {

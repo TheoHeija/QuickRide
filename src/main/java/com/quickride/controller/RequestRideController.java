@@ -1,319 +1,492 @@
 package com.quickride.controller;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.regex.Pattern;
+
 import com.quickride.exception.NoTaxiAvailableException;
 import com.quickride.manager.RideManager;
+import com.quickride.manager.TaxiManager;
 import com.quickride.model.Location;
-import com.quickride.util.RealMapViewer;
+import com.quickride.model.Ride;
 
+import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
+import javafx.fxml.Initializable;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
+import java.net.URL;
+import java.util.ResourceBundle;
+
 /**
- * Controller for the Request Ride dialog
+ * Controller for the Request Ride View
+ * Handles ride booking functionality with improved UI/UX
  */
-public class RequestRideController {
-    /**
-     * Default constructor required by FXML loader.
-     * Must be public for JavaFX to access it.
-     */
-    public RequestRideController() {
-        // Default constructor required for FXML
+public class RequestRideController implements Initializable {
+
+    // Static map for known locations and their coordinates
+    private static final Map<String, double[]> KNOWN_LOCATIONS = new HashMap<>();
+    static {
+        KNOWN_LOCATIONS.put("Zürich Hauptbahnhof", new double[]{47.3779, 8.5403});
+        KNOWN_LOCATIONS.put("Zürich Airport", new double[]{47.4647, 8.5492});
+        KNOWN_LOCATIONS.put("ETH Zurich", new double[]{47.3769, 8.5417});
+        KNOWN_LOCATIONS.put("University of Zurich", new double[]{47.3739, 8.5494});
+        KNOWN_LOCATIONS.put("Bahnhofstrasse", new double[]{47.3689, 8.5394});
+        KNOWN_LOCATIONS.put("Zurich Old Town", new double[]{47.3717, 8.5422});
+        KNOWN_LOCATIONS.put("Lake Zurich", new double[]{47.3667, 8.5500});
+        KNOWN_LOCATIONS.put("Uetliberg", new double[]{47.3492, 8.4914});
     }
 
-    @FXML
-    private TextField customerNameField;
+    // Phone number validation pattern
+    private static final Pattern PHONE_PATTERN = Pattern.compile("^\\+[1-9]\\d{1,14}$");
+
+    // FXML UI Components
+    @FXML private Button backButton;
+    @FXML private ProgressIndicator loadingIndicator;
     
-    @FXML
-    private TextField phoneNumberField;
+    // Location inputs
+    @FXML private ComboBox<String> pickupLocationComboBox;
+    @FXML private ComboBox<String> dropoffLocationComboBox;
     
-    @FXML
-    private ComboBox<String> pickupLocationComboBox;
+    // Passenger details
+    @FXML private TextField customerNameField;
+    @FXML private TextField phoneNumberField;
     
-    @FXML
-    private ComboBox<String> dropoffLocationComboBox;
+    // Ride type buttons
+    @FXML private Button economyButton;
+    @FXML private Button comfortButton;
+    @FXML private Button premiumButton;
     
-    @FXML
-    private CheckBox nearestTaxiCheckBox;
+    // Individual price/ETA labels for each ride type
+    @FXML private Label economyPrice;
+    @FXML private Label economyEta;
+    @FXML private Label comfortPrice;
+    @FXML private Label comfortEta;
+    @FXML private Label premiumPrice;
+    @FXML private Label premiumEta;
     
-    @FXML
-    private CheckBox scheduleRideCheckBox;
+    // Options
+    @FXML private CheckBox nearestTaxiCheckBox;
     
-    @FXML
-    private Button requestButton;
-    
-    @FXML
-    private Button economyButton;
-    
-    @FXML
-    private Button comfortButton;
-    
-    @FXML
-    private Button premiumButton;
-    
-    @FXML
-    private StackPane mapContainer;
-    
+    // Action button and fare display
+    @FXML private Button requestButton;
+    @FXML private Label fareEstimateLabel;
+    @FXML private Label etaEstimateLabel;
+
+    // Dependencies
     private RideManager rideManager;
-    private RealMapViewer mapViewer;
-    private String selectedRideType = "Economy"; // Default ride type
     
+    // State
+    private String selectedRideType = "Economy"; // Default selection
+    private Stage stage;
+
     /**
-     * Set the ride manager for this controller
-     * @param rideManager The ride manager
+     * Default constructor required by FXML loader.
      */
-    public void setRideManager(RideManager rideManager) {
-        this.rideManager = rideManager;
+    public RequestRideController() {
+        // Default constructor
     }
-    
-    /**
-     * Initialize the controller
-     */
-    @FXML
-    public void initialize() {
-        // Initialize checkbox
-        if (nearestTaxiCheckBox != null) {
-            nearestTaxiCheckBox.setSelected(true);
+
+    @Override
+    public void initialize(URL location, ResourceBundle resources) {
+        setupLocationComboBoxes();
+        setupValidation();
+        updateAllFareEstimates();
+        
+        // Set initial loading state
+        if (loadingIndicator != null) {
+            loadingIndicator.setVisible(false);
         }
         
-        if (scheduleRideCheckBox != null) {
-            scheduleRideCheckBox.setSelected(false);
+        // Add listeners for dynamic fare updates
+        if (pickupLocationComboBox != null) {
+            pickupLocationComboBox.setOnAction(e -> updateAllFareEstimates());
         }
-        
-        // Initialize location options
-        initializeLocationOptions();
-        
-        // Initialize the map if the container exists
-        if (mapContainer != null) {
-            setupMapView();
+        if (dropoffLocationComboBox != null) {
+            dropoffLocationComboBox.setOnAction(e -> updateAllFareEstimates());
         }
     }
-    
+
     /**
-     * Set up the map view
+     * Setup location combo boxes with available locations
      */
-    private void setupMapView() {
-        // Create a map viewer in the container
-        mapViewer = new RealMapViewer(mapContainer);
-        
-        // Center the map on Switzerland
-        mapViewer.centerMap(46.8182, 8.2275, 8);
-    }
-    
-    /**
-     * Handle ride type selection
-     */
-    @FXML
-    public void handleRideTypeSelection() {
-        // Reset all buttons first
-        economyButton.getStyleClass().remove("active");
-        comfortButton.getStyleClass().remove("active");
-        premiumButton.getStyleClass().remove("active");
-        
-        // Determine which button was clicked and update selection
-        if (economyButton.isFocused()) {
-            economyButton.getStyleClass().add("active");
-            selectedRideType = "Economy";
-            updateFareEstimate(12, 15);
-        } else if (comfortButton.isFocused()) {
-            comfortButton.getStyleClass().add("active");
-            selectedRideType = "Comfort";
-            updateFareEstimate(18, 22);
-        } else if (premiumButton.isFocused()) {
-            premiumButton.getStyleClass().add("active");
-            selectedRideType = "Premium";
-            updateFareEstimate(25, 30);
-        }
-    }
-    
-    /**
-     * Update the fare estimate based on ride type
-     */
-    private void updateFareEstimate(int minFare, int maxFare) {
-        // This would update the fare estimate label text
-        // Since we're just setting text in the FXML file for now, this is a placeholder
-        System.out.println("Estimated fare: CHF " + minFare + " - " + maxFare);
-    }
-    
-    /**
-     * Initialize location dropdown options with Swiss locations
-     */
-    private void initializeLocationOptions() {
-        // Sample Swiss pickup locations
+    private void setupLocationComboBoxes() {
         if (pickupLocationComboBox != null) {
             pickupLocationComboBox.getItems().addAll(
-                "Current Location",
-                "Zürich Hauptbahnhof",
-                "Zürich Airport",
-                "Bern Bahnhof",
-                "Lausanne Gare",
-                "Geneva Airport",
-                "Basel SBB",
-                "Lucerne Station"
+                "Current Location", 
+                "Zürich Hauptbahnhof", 
+                "Zürich Airport", 
+                "ETH Zurich",
+                "University of Zurich", 
+                "Bahnhofstrasse", 
+                "Zurich Old Town",
+                "Lake Zurich", 
+                "Uetliberg"
             );
             pickupLocationComboBox.setValue("Current Location");
         }
-        
-        // Sample Swiss dropoff locations
+
         if (dropoffLocationComboBox != null) {
             dropoffLocationComboBox.getItems().addAll(
-                "Zürich Hauptbahnhof",
-                "Zürich Airport",
-                "Bern Bahnhof",
-                "Lausanne Gare",
-                "Geneva Airport", 
-                "Basel SBB",
-                "Lucerne Station",
-                "Interlaken Ost"
+                "Zürich Hauptbahnhof", 
+                "Zürich Airport", 
+                "ETH Zurich",
+                "University of Zurich", 
+                "Bahnhofstrasse", 
+                "Zurich Old Town",
+                "Lake Zurich", 
+                "Uetliberg"
             );
         }
     }
-    
+
     /**
-     * Handle request button click
+     * Setup input validation with visual feedback
+     */
+    private void setupValidation() {
+        // Add real-time phone number validation
+        if (phoneNumberField != null) {
+            phoneNumberField.textProperty().addListener((observable, oldValue, newValue) -> {
+                if (newValue != null && !newValue.trim().isEmpty()) {
+                    if (PHONE_PATTERN.matcher(newValue).matches()) {
+                        phoneNumberField.setStyle("-fx-border-color: #34C759;"); // Green for valid
+                    } else {
+                        phoneNumberField.setStyle("-fx-border-color: #FF3B30;"); // Red for invalid
+                    }
+                } else {
+                    phoneNumberField.setStyle(""); // Reset to default
+                }
+            });
+        }
+        
+        // Add name validation
+        if (customerNameField != null) {
+            customerNameField.textProperty().addListener((observable, oldValue, newValue) -> {
+                if (newValue != null && newValue.trim().length() >= 2) {
+                    customerNameField.setStyle("-fx-border-color: #34C759;"); // Green for valid
+                } else {
+                    customerNameField.setStyle(""); // Reset to default
+                }
+            });
+        }
+    }
+
+    /**
+     * Handle ride type selection with improved visual feedback
+     */
+    @FXML
+    public void handleRideTypeSelection(javafx.event.ActionEvent event) {
+        // Reset all buttons
+        resetRideTypeButtons();
+        
+        // Set active button and update selected type
+        Button source = (Button) event.getSource();
+        source.getStyleClass().add("active");
+        
+        if (source == economyButton) {
+            selectedRideType = "Economy";
+        } else if (source == comfortButton) {
+            selectedRideType = "Comfort";
+        } else if (source == premiumButton) {
+            selectedRideType = "Premium";
+        }
+        
+        updateMainFareEstimate();
+    }
+
+    /**
+     * Reset all ride type buttons to inactive state
+     */
+    private void resetRideTypeButtons() {
+        if (economyButton != null) economyButton.getStyleClass().remove("active");
+        if (comfortButton != null) comfortButton.getStyleClass().remove("active");
+        if (premiumButton != null) premiumButton.getStyleClass().remove("active");
+    }
+
+    /**
+     * Update fare estimates for all ride types
+     */
+    private void updateAllFareEstimates() {
+        String pickup = pickupLocationComboBox != null ? pickupLocationComboBox.getValue() : null;
+        String dropoff = dropoffLocationComboBox != null ? dropoffLocationComboBox.getValue() : null;
+        
+        if (pickup == null || dropoff == null || pickup.equals(dropoff)) {
+            return; // Skip if invalid selection
+        }
+        
+        // Calculate base distance/fare (simplified)
+        double distance = calculateDistance(pickup, dropoff);
+        
+        // Update individual ride type prices and ETAs
+        updateRideTypePricing("Economy", distance, economyPrice, economyEta);
+        updateRideTypePricing("Comfort", distance, comfortPrice, comfortEta);
+        updateRideTypePricing("Premium", distance, premiumPrice, premiumEta);
+        
+        // Update main fare display
+        updateMainFareEstimate();
+    }
+
+    /**
+     * Update pricing for a specific ride type
+     */
+    private void updateRideTypePricing(String rideType, double distance, Label priceLabel, Label etaLabel) {
+        if (priceLabel == null || etaLabel == null) return;
+        
+        double baseFare = Math.max(8.0, distance * 2.5); // Minimum CHF 8
+        double multiplier = getRideTypeMultiplier(rideType);
+        double fare = baseFare * multiplier;
+        int eta = Math.max(5, (int)(distance * 2)); // Minimum 5 minutes
+        
+        priceLabel.setText(String.format("CHF %.0f-%.0f", fare, fare * 1.2));
+        etaLabel.setText(eta + " min");
+    }
+
+    /**
+     * Get pricing multiplier for ride type
+     */
+    private double getRideTypeMultiplier(String rideType) {
+        return switch (rideType) {
+            case "Economy" -> 1.0;
+            case "Comfort" -> 1.4;
+            case "Premium" -> 1.8;
+            default -> 1.0;
+        };
+    }
+
+    /**
+     * Update the main fare estimate display based on selected ride type
+     */
+    private void updateMainFareEstimate() {
+        String pickup = pickupLocationComboBox != null ? pickupLocationComboBox.getValue() : null;
+        String dropoff = dropoffLocationComboBox != null ? dropoffLocationComboBox.getValue() : null;
+        
+        if (pickup == null || dropoff == null || pickup.equals(dropoff)) {
+            if (fareEstimateLabel != null) fareEstimateLabel.setText("Select locations");
+            if (etaEstimateLabel != null) etaEstimateLabel.setText("--");
+            return;
+        }
+        
+        double distance = calculateDistance(pickup, dropoff);
+        double baseFare = Math.max(8.0, distance * 2.5);
+        double multiplier = getRideTypeMultiplier(selectedRideType);
+        double fare = baseFare * multiplier;
+        int eta = Math.max(5, (int)(distance * 2));
+        
+        if (fareEstimateLabel != null) {
+            fareEstimateLabel.setText(String.format("CHF %.0f-%.0f", fare, fare * 1.2));
+        }
+        if (etaEstimateLabel != null) {
+            etaEstimateLabel.setText(eta + " min");
+        }
+    }
+
+    /**
+     * Calculate distance between two locations (simplified)
+     */
+    private double calculateDistance(String pickup, String dropoff) {
+        // For "Current Location", use Zürich HB as default
+        if ("Current Location".equals(pickup)) {
+            pickup = "Zürich Hauptbahnhof";
+        }
+        
+        double[] pickupCoords = KNOWN_LOCATIONS.getOrDefault(pickup, new double[]{47.3779, 8.5403});
+        double[] dropoffCoords = KNOWN_LOCATIONS.getOrDefault(dropoff, new double[]{47.3779, 8.5403});
+        
+        // Simple distance calculation (not accurate, for demo purposes)
+        double latDiff = pickupCoords[0] - dropoffCoords[0];
+        double lonDiff = pickupCoords[1] - dropoffCoords[1];
+        double distance = Math.sqrt(latDiff * latDiff + lonDiff * lonDiff) * 100; // Rough conversion to km
+        
+        return Math.max(2.0, distance); // Minimum 2km
+    }
+
+    /**
+     * Handle ride request with improved validation and error handling
      */
     @FXML
     public void handleRequestRide() {
-        // Validate fields
-        if (validateFields()) {
-            try {
-                // Determine if we should use nearest taxi
-                boolean useNearest = nearestTaxiCheckBox != null ? 
-                    nearestTaxiCheckBox.isSelected() : true;
-                
-                // Get pickup and dropoff locations
-                String pickup = pickupLocationComboBox.getValue();
-                String dropoff = dropoffLocationComboBox.getValue();
-                
-                // Log ride details
-                System.out.println("Requesting ride with: Customer=" + customerNameField.getText().trim() + 
-                                  ", Phone=" + (phoneNumberField != null ? phoneNumberField.getText() : "N/A") +
-                                  ", Pickup=" + pickup + ", Dropoff=" + dropoff + 
-                                  ", RideType=" + selectedRideType +
-                                  ", UseNearest=" + useNearest +
-                                  ", Scheduled=" + (scheduleRideCheckBox != null && scheduleRideCheckBox.isSelected()));
-                
-                // Check if ride manager is properly set
-                if (rideManager == null) {
-                    throw new IllegalStateException("Ride manager is not initialized");
+        if (!validateInputs()) {
+            return;
+        }
+        
+        setLoadingState(true);
+        
+        // Create task for background processing
+        Task<Void> rideRequestTask = new Task<Void>() {
+            @Override
+            protected Void call() throws Exception {
+                try {
+                    // Simulate processing time
+                    Thread.sleep(1500);
+                    
+                    // Create ride request
+                    createRideRequest();
+                    
+                    Platform.runLater(() -> {
+                        showSuccessAlert();
+                        closeWindow();
+                    });
+                } catch (NoTaxiAvailableException e) {
+                    Platform.runLater(() -> {
+                        showErrorAlert("No taxi available: " + e.getMessage());
+                    });
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    Platform.runLater(() -> {
+                        showErrorAlert("Request was interrupted");
+                    });
+                } catch (Exception e) {
+                    Platform.runLater(() -> {
+                        showErrorAlert("Failed to request ride: " + e.getMessage());
+                    });
+                } finally {
+                    Platform.runLater(() -> setLoadingState(false));
                 }
-                
-                // Create new ride
-                rideManager.requestRide(
-                    customerNameField.getText().trim(),
-                    new Location(pickup),
-                    new Location(dropoff),
-                    useNearest
-                );
-                
-                // Show success message
-                Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                alert.setTitle("Ride Requested");
-                alert.setHeaderText("Ride Successfully Requested");
-                
-                String confirmationMessage = "Your " + selectedRideType + " ride has been requested and a taxi will arrive shortly.";
-                if (scheduleRideCheckBox != null && scheduleRideCheckBox.isSelected()) {
-                    confirmationMessage = "Your " + selectedRideType + " ride has been scheduled.";
-                }
-                
-                alert.setContentText(confirmationMessage);
-                alert.showAndWait();
-                
-                // Close the dialog
-                closeDialog();
-                
-            } catch (NoTaxiAvailableException e) {
-                // Show specific error for no taxi available
-                System.err.println("NoTaxiAvailableException: " + e.getMessage());
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("No Taxi Available");
-                alert.setHeaderText("Cannot Request Ride");
-                alert.setContentText("No taxis are currently available. Please try again later.");
-                alert.showAndWait();
-            } catch (IllegalArgumentException e) {
-                // Show specific error for invalid input
-                System.err.println("IllegalArgumentException: " + e.getMessage());
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("Invalid Input");
-                alert.setHeaderText("Cannot Request Ride");
-                alert.setContentText("Invalid input: " + e.getMessage());
-                alert.showAndWait();
-            } catch (IllegalStateException e) {
-                // Show specific error for state issues
-                System.err.println("IllegalStateException: " + e.getMessage());
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("System Error");
-                alert.setHeaderText("Cannot Request Ride");
-                alert.setContentText("System error: " + e.getMessage());
-                alert.showAndWait();
-            } catch (Exception e) {
-                // Show error message for other unexpected errors
-                System.err.println("Unexpected exception: " + e.getClass().getName() + ": " + e.getMessage());
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("Request Error");
-                alert.setHeaderText("Failed to request ride");
-                alert.setContentText("Unexpected error: " + e.getMessage());
-                alert.showAndWait();
+                return null;
             }
-        }
+        };
+        
+        new Thread(rideRequestTask).start();
     }
-    
+
     /**
-     * Validate form fields
-     * @return true if fields are valid
+     * Validate all input fields
      */
-    private boolean validateFields() {
-        StringBuilder errorMessage = new StringBuilder();
+    private boolean validateInputs() {
+        StringBuilder errors = new StringBuilder();
         
-        if (customerNameField.getText().trim().isEmpty()) {
-            errorMessage.append("Customer name is required\n");
+        // Validate locations
+        if (pickupLocationComboBox == null || pickupLocationComboBox.getValue() == null) {
+            errors.append("Please select a pickup location.\n");
+        }
+        if (dropoffLocationComboBox == null || dropoffLocationComboBox.getValue() == null) {
+            errors.append("Please select a dropoff location.\n");
+        }
+        if (pickupLocationComboBox != null && dropoffLocationComboBox != null && 
+            pickupLocationComboBox.getValue() != null && dropoffLocationComboBox.getValue() != null &&
+            pickupLocationComboBox.getValue().equals(dropoffLocationComboBox.getValue())) {
+            errors.append("Pickup and dropoff locations cannot be the same.\n");
         }
         
-        if (phoneNumberField != null && phoneNumberField.getText().trim().isEmpty()) {
-            errorMessage.append("Phone number is required\n");
+        // Validate customer name
+        if (customerNameField == null || customerNameField.getText().trim().length() < 2) {
+            errors.append("Please enter a valid name (at least 2 characters).\n");
         }
         
-        if (pickupLocationComboBox.getValue() == null || pickupLocationComboBox.getValue().trim().isEmpty()) {
-            errorMessage.append("Pickup location is required\n");
+        // Validate phone number
+        if (phoneNumberField == null || !PHONE_PATTERN.matcher(phoneNumberField.getText().trim()).matches()) {
+            errors.append("Please enter a valid phone number (e.g., +41 XX XXX XX XX).\n");
         }
         
-        if (dropoffLocationComboBox.getValue() == null || dropoffLocationComboBox.getValue().trim().isEmpty()) {
-            errorMessage.append("Drop-off location is required\n");
-        }
-        
-        if (errorMessage.length() > 0) {
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Validation Error");
-            alert.setHeaderText("Please correct the following errors:");
-            alert.setContentText(errorMessage.toString());
-            alert.showAndWait();
+        if (errors.length() > 0) {
+            showErrorAlert(errors.toString());
             return false;
         }
         
         return true;
     }
-    
+
     /**
-     * Handle cancel button click
+     * Create the actual ride request
+     */
+    private void createRideRequest() throws NoTaxiAvailableException {
+        String pickup = pickupLocationComboBox.getValue();
+        String dropoff = dropoffLocationComboBox.getValue();
+        String customerName = customerNameField.getText().trim();
+        String customerPhoneNumber = phoneNumberField.getText().trim();
+        boolean useNearestTaxi = nearestTaxiCheckBox != null && nearestTaxiCheckBox.isSelected();
+        
+        // Convert pickup location to coordinates
+        double[] pickupCoords = KNOWN_LOCATIONS.getOrDefault(
+            "Current Location".equals(pickup) ? "Zürich Hauptbahnhof" : pickup,
+            new double[]{47.3779, 8.5403}
+        );
+        
+        double[] dropoffCoords = KNOWN_LOCATIONS.getOrDefault(dropoff, new double[]{47.3779, 8.5403});
+        
+        Location pickupLocation = new Location(pickupCoords[0], pickupCoords[1], pickup);
+        Location dropoffLocation = new Location(dropoffCoords[0], dropoffCoords[1], dropoff);
+        
+        // Create ride using correct constructor
+        new Ride(customerName, pickupLocation, dropoffLocation);
+        
+        // Store additional properties for future use
+        System.out.println("Phone: " + customerPhoneNumber + ", Ride Type: " + selectedRideType);
+        
+        if (rideManager != null) {
+            rideManager.requestRide(customerName, pickupLocation, dropoffLocation, useNearestTaxi);
+        }
+    }
+
+    /**
+     * Set loading state for UI
+     */
+    private void setLoadingState(boolean loading) {
+        if (loadingIndicator != null) {
+            loadingIndicator.setVisible(loading);
+        }
+        if (requestButton != null) {
+            requestButton.setDisable(loading);
+            requestButton.setText(loading ? "REQUESTING..." : "REQUEST RIDE");
+        }
+    }
+
+    /**
+     * Show success alert
+     */
+    private void showSuccessAlert() {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Ride Requested");
+        alert.setHeaderText("Success!");
+        alert.setContentText("Your ride has been requested successfully. You will be contacted shortly.");
+        alert.showAndWait();
+    }
+
+    /**
+     * Show error alert
+     */
+    private void showErrorAlert(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Request Failed");
+        alert.setHeaderText("Unable to Request Ride");
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    /**
+     * Handle cancel/back button
      */
     @FXML
     public void handleCancel() {
-        closeDialog();
+        closeWindow();
     }
-    
+
     /**
-     * Close the dialog
+     * Close the window
      */
-    private void closeDialog() {
-        if (mapViewer != null) {
-            mapViewer.dispose();
+    private void closeWindow() {
+        if (stage != null) {
+            stage.close();
+        } else if (backButton != null) {
+            Stage currentStage = (Stage) backButton.getScene().getWindow();
+            currentStage.close();
         }
-        Stage stage = (Stage) requestButton.getScene().getWindow();
-        stage.close();
+    }
+
+    // Setters for dependency injection
+    public void setRideManager(RideManager rideManager) {
+        this.rideManager = rideManager;
+    }
+
+    public void setStage(Stage stage) {
+        this.stage = stage;
     }
 } 

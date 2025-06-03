@@ -33,7 +33,14 @@ public class QuickRideApp extends Application {
             
             // Create scene
             Scene scene = new Scene(root, Constants.APP_WIDTH, Constants.APP_HEIGHT);
-            scene.getStylesheets().add(getClass().getResource(Constants.CSS_FILE).toExternalForm());
+            
+            // Load stylesheet safely
+            java.net.URL cssResource = getClass().getResource(Constants.CSS_FILE);
+            if (cssResource != null) {
+                scene.getStylesheets().add(cssResource.toExternalForm());
+            } else {
+                System.err.println("Warning: CSS file not found: " + Constants.CSS_FILE);
+            }
             
             // Set up stage
             primaryStage.setTitle(Constants.APP_TITLE);

@@ -1,7 +1,11 @@
 package com.quickride.util;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -45,6 +49,9 @@ public class RealMapViewer {
     
     // Store reference to currently selected taxi
     private Taxi selectedTaxi;
+    
+    // Cache for the taxi icon
+    private String taxiIconDataUrl;
     
     // Static initializer to avoid "this" escape
     private static final class MapInitializer {
@@ -180,8 +187,8 @@ public class RealMapViewer {
                 .append("        }\n")
                 .append("        .selected-taxi {\n")
                 .append("            z-index: 1000 !important;\n")
-                .append("            filter: drop-shadow(0 0 10px #ff9800);\n")
-                .append("            transform: scale(1.2);\n")
+                .append("            filter: drop-shadow(0 0 10px #ff9800) brightness(1.3);\n")
+                .append("            transform: scale(1.3);\n")
                 .append("            transition: all 0.3s ease;\n")
                 .append("        }\n")
                 .append("    </style>\n")
@@ -219,8 +226,16 @@ public class RealMapViewer {
                 .append("            maxZoom: 20\n")
                 .append("        });\n")
                 .append("        \n")
-                .append("        // Add street view by default\n")
-                .append("        street.addTo(map);\n")
+                .append("        // Add city labels layer for satellite view\n")
+                .append("        var cityLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {\n")
+                .append("            attribution: '&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors &copy; <a href=\"https://carto.com/attributions\">CARTO</a>',\n")
+                .append("            subdomains: 'abcd',\n")
+                .append("            maxZoom: 19\n")
+                .append("        });\n")
+                .append("        \n")
+                .append("        // Add satellite view by default with city labels\n")
+                .append("        satelliteAlt.addTo(map);\n")
+                .append("        cityLabels.addTo(map);\n")
                 .append("        \n")
                 .append("        // Create layer control\n")
                 .append("        var baseMaps = {\n")
@@ -228,7 +243,11 @@ public class RealMapViewer {
                 .append("            \"Satellite\": satelliteAlt\n")
                 .append("        };\n")
                 .append("        \n")
-                .append("        L.control.layers(baseMaps, null, {position: 'topright'}).addTo(map);\n")
+                .append("        var overlayMaps = {\n")
+                .append("            \"City Labels\": cityLabels\n")
+                .append("        };\n")
+                .append("        \n")
+                .append("        L.control.layers(baseMaps, overlayMaps, {position: 'topright'}).addTo(map);\n")
                 .append("        \n")
                 .append("        // Object to store markers\n")
                 .append("        var taxiMarkers = {};\n")
@@ -254,12 +273,12 @@ public class RealMapViewer {
                 .append("                    // Update existing marker\n")
                 .append("                    taxiMarkers[taxi.id].setLatLng([taxi.lat, taxi.lon]);\n")
                 .append("                } else {\n")
-                .append("                    // Create new marker with car icon\n")
-                .append("                    var taxiIcon = L.divIcon({\n")
-                .append("                        html: '<img src=\"data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgdmlld0JveD0iMCAwIDUxMiA1MTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgICA8IS0tIE9yYW5nZSBDYXIgU1ZHIHJlY3JlYXRpb24gb2YgdGhlIGlzb21ldHJpYyBjYXIgLS0+CiAgICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NiwgMTA2KSBzY2FsZSgwLjgpIj4KICAgICAgICA8IS0tIENhciBCb2R5IC0tPgogICAgICAgIDxwYXRoIGQ9Ik0yNTAgMjAwTDEwMCAzMDBMNDAwIDMwMEw1MDAgMjAwTDI1MCAyMDBaIiBmaWxsPSIjRkY1NzIyIi8+CiAgICAgICAgPCEtLSBDYXIgVG9wIC0tPgogICAgICAgIDxwYXRoIGQ9Ik0yNTAgMjAwTDM3MCAxMDBMNTAwIDIwMEwyNTAgMjAwWiIgZmlsbD0iI0U2NEExOSIvPgogICAgICAgIDwhLS0gTGVmdCBTaWRlIEJvZHkgLS0+CiAgICAgICAgPHBhdGggZD0iTTEwMCAzMDBMMTAwIDM1MEwyMDAgNDAwTDQwMCA0MDBMNDAwIDMwMEwxMDAgMzAwWiIgZmlsbD0iI0ZGNTcyMiIvPgogICAgICAgIDwhLS0gRnJvbnQgQnVtcGVyIC0tPgogICAgICAgIDxwYXRoIGQ9Ik00MDAgMzAwTDQwMCA0MDBMNTAwIDMyMEw1MDAgMjAwTDQwMCAzMDBaIiBmaWxsPSIjQkYzNjBDIi8+CiAgICAgICAgPCEtLSBXaGVlbHMgLS0+CiAgICAgICAgPGNpcmNsZSBjeD0iMTc1IiBjeT0iMzgwIiByPSI0MCIgZmlsbD0iIzQyNDI0MiIvPgogICAgICAgIDxjaXJjbGUgY3g9IjE3NSIgY3k9IjM4MCIgcj0iMjAiIGZpbGw9IiNCREJEQkQiLz4KICAgICAgICA8Y2lyY2xlIGN4PSIzNTAiIGN5PSIzODAiIHI9IjQwIiBmaWxsPSIjNDI0MjQyIi8+CiAgICAgICAgPGNpcmNsZSBjeD0iMzUwIiBjeT0iMzgwIiByPSIyMCIgZmlsbD0iI0JEQkRCRCIvPgogICAgICAgIDwhLS0gV2luZG93cyAtLT4KICAgICAgICA8cGF0aCBkPSJNMjYwIDIyMEwzNzAgMTMwTDQ2MCAyMDBMMjYwIDIyMFoiIGZpbGw9IiM3OTU1NDgiLz4KICAgICAgICA8IS0tIEhlYWRsaWdodHMgLS0+CiAgICAgICAgPHJlY3QgeD0iNDgwIiB5PSIyNTAiIHdpZHRoPSIzMCIgaGVpZ2h0PSIyMCIgZmlsbD0iI0ZGRkZGRiIvPgogICAgICAgIDxyZWN0IHg9IjQ4MCIgeT0iMjkwIiB3aWR0aD0iMzAiIGhlaWdodD0iMjAiIGZpbGw9IiNGRkZGRkYiLz4KICAgICAgICA8IS0tIFNpZGUgRGV0YWlsIC0tPgogICAgICAgIDxyZWN0IHg9IjEyMCIgeT0iMzIwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjQkYzNjBDIi8+CiAgICA8L2c+Cjwvc3ZnPg==\" width=\"36\" height=\"36\" style=\"filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.5));\">',\n")
-                .append("                        className: taxi.id === selectedTaxiId ? 'selected-taxi' : '', \n")
-                .append("                        iconSize: [36, 36],\n")
-                .append("                        iconAnchor: [18, 18]\n")
+                .append("                    // Create new marker with taxi icon\n")
+                .append("                    var taxiIcon = L.icon({\n")
+                .append("                        iconUrl: '").append(loadTaxiIconAsDataUrl()).append("',\n")
+                .append("                        iconSize: [32, 32],\n")
+                .append("                        iconAnchor: [16, 16],\n")
+                .append("                        popupAnchor: [0, -16]\n")
                 .append("                    });\n")
                 .append("                    \n")
                 .append("                    var marker = L.marker([taxi.lat, taxi.lon], {icon: taxiIcon})\n")
@@ -295,9 +314,10 @@ public class RealMapViewer {
                 .append("        function selectTaxi(taxiId) {\n")
                 .append("            // Remove highlight from previously selected taxi\n")
                 .append("            if (selectedTaxiId && taxiMarkers[selectedTaxiId]) {\n")
-                .append("                var oldIcon = taxiMarkers[selectedTaxiId].getIcon();\n")
-                .append("                oldIcon.options.className = '';\n")
-                .append("                taxiMarkers[selectedTaxiId].setIcon(oldIcon);\n")
+                .append("                var element = taxiMarkers[selectedTaxiId].getElement();\n")
+                .append("                if (element) {\n")
+                .append("                    element.classList.remove('selected-taxi');\n")
+                .append("                }\n")
                 .append("            }\n")
                 .append("            \n")
                 .append("            // Set new selected taxi\n")
@@ -305,9 +325,10 @@ public class RealMapViewer {
                 .append("            \n")
                 .append("            // Highlight the selected taxi\n")
                 .append("            if (taxiMarkers[taxiId]) {\n")
-                .append("                var newIcon = taxiMarkers[taxiId].getIcon();\n")
-                .append("                newIcon.options.className = 'selected-taxi';\n")
-                .append("                taxiMarkers[taxiId].setIcon(newIcon);\n")
+                .append("                var element = taxiMarkers[taxiId].getElement();\n")
+                .append("                if (element) {\n")
+                .append("                    element.classList.add('selected-taxi');\n")
+                .append("                }\n")
                 .append("                \n")
                 .append("                // Center map on the selected taxi\n")
                 .append("                map.panTo(taxiMarkers[taxiId].getLatLng(), {\n")
@@ -320,9 +341,10 @@ public class RealMapViewer {
                 .append("        // Function to clear the selected taxi\n")
                 .append("        function clearSelectedTaxi() {\n")
                 .append("            if (selectedTaxiId && taxiMarkers[selectedTaxiId]) {\n")
-                .append("                var oldIcon = taxiMarkers[selectedTaxiId].getIcon();\n")
-                .append("                oldIcon.options.className = '';\n")
-                .append("                taxiMarkers[selectedTaxiId].setIcon(oldIcon);\n")
+                .append("                var element = taxiMarkers[selectedTaxiId].getElement();\n")
+                .append("                if (element) {\n")
+                .append("                    element.classList.remove('selected-taxi');\n")
+                .append("                }\n")
                 .append("                selectedTaxiId = null;\n")
                 .append("            }\n")
                 .append("        }\n")
@@ -352,8 +374,10 @@ public class RealMapViewer {
                 .append("            if (type === 'satellite') {\n")
                 .append("                street.remove();\n")
                 .append("                satelliteAlt.addTo(map);\n")
+                .append("                cityLabels.addTo(map);\n")
                 .append("            } else {\n")
                 .append("                satelliteAlt.remove();\n")
+                .append("                cityLabels.remove();\n")
                 .append("                street.addTo(map);\n")
                 .append("            }\n")
                 .append("        }\n")
@@ -695,5 +719,39 @@ public class RealMapViewer {
                 LOGGER.log(Level.SEVERE, "Error clearing selected taxi", e);
             }
         });
+    }
+
+    /**
+     * Load the taxi icon as a base64 data URL
+     */
+    private String loadTaxiIconAsDataUrl() {
+        if (taxiIconDataUrl != null) {
+            return taxiIconDataUrl; // Return cached version
+        }
+        
+        try (InputStream is = getClass().getResourceAsStream("/images/taxi_icon.png")) {
+            if (is == null) {
+                LOGGER.warning("Could not find taxi_icon.png, using fallback icon");
+                return "https://cdn-icons-png.flaticon.com/512/3448/3448339.png";
+            }
+            
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = is.read(buffer)) != -1) {
+                baos.write(buffer, 0, length);
+            }
+            
+            byte[] imageBytes = baos.toByteArray();
+            String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+            taxiIconDataUrl = "data:image/png;base64," + base64Image;
+            
+            LOGGER.info("Successfully loaded taxi icon as data URL");
+            return taxiIconDataUrl;
+            
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "Failed to load taxi icon, using fallback", e);
+            return "https://cdn-icons-png.flaticon.com/512/3448/3448339.png";
+        }
     }
 } 

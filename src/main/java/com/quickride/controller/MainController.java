@@ -17,6 +17,7 @@ import com.quickride.util.RealMapViewer;
 import com.quickride.util.TaxiAnimator;
 import com.quickride.util.TaxiFactory;
 
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.ListChangeListener;
 import javafx.fxml.FXML;
@@ -32,7 +33,6 @@ import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
-import javafx.scene.control.TextField;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
@@ -290,8 +290,8 @@ public class MainController {
     
     private void addDemoData() {
         try {
-            // Add several taxis for better map visualization
-            Taxi[] randomTaxis = TaxiFactory.createRandomTaxis(10);
+            // Add many more taxis for a realistic map
+            Taxi[] randomTaxis = TaxiFactory.createRandomTaxis(25);
             for (Taxi taxi : randomTaxis) {
                 taxiManager.addTaxi(taxi);
             }
@@ -318,12 +318,13 @@ public class MainController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/views/RequestRideView.fxml"));
             Parent root = loader.load();
             
-            // Get the controller and set the ride manager
+            // Get the controller and set the managers
             RequestRideController controller = loader.getController();
             controller.setRideManager(rideManager);
             
             // Create and show the stage
             Stage stage = new Stage();
+            controller.setStage(stage);
             stage.setTitle("Request a Ride");
             stage.setScene(new Scene(root));
             stage.initModality(Modality.APPLICATION_MODAL);
@@ -342,33 +343,7 @@ public class MainController {
         }
     }
     
-    /**
-     * Handle add taxi button click
-     */
-    @FXML
-    public void handleAddTaxi() {
-        try {
-            // Load the add taxi view
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/views/AddTaxiView.fxml"));
-            Parent root = loader.load();
-            
-            // Get the controller and set the taxi manager
-            AddTaxiController controller = loader.getController();
-            controller.setTaxiManager(taxiManager);
-            
-            // Create and show the stage
-            Stage stage = new Stage();
-            stage.setTitle("Add New Taxi");
-            stage.setScene(new Scene(root));
-            stage.initModality(Modality.APPLICATION_MODAL);
-            stage.showAndWait();
-            
-            // Update UI after dialog closes
-            updateStatusBar();
-        } catch (IOException e) {
-            showError("Error loading add taxi view", e);
-        }
-    }
+
     
     /**
      * Set up map rendering
@@ -387,11 +362,26 @@ public class MainController {
             mapContainer.getChildren().clear();
             mapContainer.getChildren().add(mapPane);
             
-            // Create and initialize the real map viewer
-            mapViewer = new RealMapViewer(mapPane);
-            
-            // Initial update with available taxis
-            updateMapWithTaxis();
+                    // Create and initialize the real map viewer
+        mapViewer = new RealMapViewer(mapPane);
+        
+        // Set satellite as default view after map loads
+        javafx.concurrent.Task<Void> setDefaultViewTask = new javafx.concurrent.Task<Void>() {
+            @Override
+            protected Void call() throws Exception {
+                Thread.sleep(2000); // Give time for map to load
+                Platform.runLater(() -> {
+                    if (mapViewer != null) {
+                        mapViewer.setMapType("satellite");
+                    }
+                });
+                return null;
+            }
+        };
+        new Thread(setDefaultViewTask).start();
+        
+        // Initial update with available taxis
+        updateMapWithTaxis();
             
             // Listen for changes in available taxis
             taxiManager.getObservableAvailableTaxis().addListener(
@@ -424,6 +414,8 @@ public class MainController {
                     }
                 }
             });
+            // Satellite view is default, mark as active
+            satelliteViewButton.getStyleClass().add("active");
         }
         
         // Setup street view button
@@ -437,8 +429,6 @@ public class MainController {
                     }
                 }
             });
-            // Street view is default, mark as active
-            streetViewButton.getStyleClass().add("active");
         }
         
         // Setup center map button

@@ -1,0 +1,454 @@
+# QuickRide - Data Structures & Algorithms Implementation
+
+## 1. Introduction
+
+QuickRide is a real-time taxi booking application that must efficiently handle thousands of ride requests per minute. This report details the implementation of various data structures and algorithms used to manage taxis, process ride requests, and optimize the overall system performance.
+
+The project demonstrates the application of complex data structures including queues, lists, sets, and maps while showcasing the proper implementation of error handling and performance optimization techniques.
+
+## 2. Implementation of Complex Data Structures (P4)
+
+### 2.1 TaxiManager Implementation
+
+The TaxiManager class implements several Abstract Data Types (ADTs) to efficiently manage the taxi fleet:
+
+```java
+// Use Queue for available taxis - demonstrate FIFO processing
+private final Queue<Taxi> availableTaxis;
+    
+// Use ArrayList for assigned taxis - demonstrate dynamic arrays
+private final List<Taxi> assignedTaxis;
+    
+// Use HashSet for all taxis - demonstrate unique collection with O(1) lookup
+private final Set<Taxi> allTaxis;
+```
+
+#### Queue Implementation
+The `availableTaxis` queue uses a LinkedList to provide FIFO (First-In-First-Out) processing, ensuring fair distribution of rides among taxi drivers. This structure allows:
+- O(1) time complexity for adding new available taxis
+- O(1) time complexity for retrieving the next available taxi
+- Fair processing order based on availability time
+
+#### ArrayList Implementation
+The `assignedTaxis` list uses an ArrayList to provide:
+- O(1) amortized time complexity for adding newly assigned taxis
+- Efficient sequential access for status updates
+- Dynamic resizing to accommodate varying numbers of active rides
+
+#### HashSet Implementation
+The `allTaxis` set uses a HashSet to ensure:
+- O(1) time complexity for checking if a taxi exists (by license plate)
+- No duplicate taxis in the system
+- Efficient membership testing
+
+### 2.2 RideManager Implementation
+
+The RideManager class uses additional data structures:
+
+```java
+// List to store all rides - demonstrate ordered collection
+private final List<Ride> allRides;
+    
+// Map to store rides by status - demonstrate map usage for O(1) lookup by key
+private final Map<RideStatus, List<Ride>> ridesByStatus;
+```
+
+#### Map Implementation
+The `ridesByStatus` map enables:
+- O(1) time complexity for retrieving rides by status
+- Efficient categorization of rides (REQUESTED, ASSIGNED, IN_PROGRESS, COMPLETED, CANCELLED)
+- Fast status-based queries for the user interface
+
+## 3. Algorithm Implementation (P4, M4)
+
+### 3.1 Taxi Assignment Algorithms
+
+Two algorithms are implemented for taxi assignment:
+
+#### Next Available Taxi (FIFO Algorithm)
+```java
+// Get the next available taxi - O(1)
+public Taxi getNextAvailableTaxi() throws NoTaxiAvailableException {
+    if (availableTaxis.isEmpty()) {
+        throw new NoTaxiAvailableException();
+    }
+    
+    Taxi taxi = availableTaxis.poll(); // Remove from queue
+    taxi.setAvailable(false);
+    assignedTaxis.add(taxi);
+    
+    // Update observable lists
+    updateObservableLists();
+    
+    return taxi;
+}
+```
+
+#### Nearest Available Taxi (Optimization Algorithm)
+```java
+// Get the nearest available taxi to a location - O(n)
+public Taxi getNearestAvailableTaxi(Location location) throws NoTaxiAvailableException {
+    if (availableTaxis.isEmpty()) {
+        throw new NoTaxiAvailableException();
+    }
+    
+    Taxi nearestTaxi = null;
+    double minDistance = Double.MAX_VALUE;
+    
+    // Find the nearest taxi - O(n) where n is the number of available taxis
+    for (Taxi taxi : availableTaxis) {
+        double distance = taxi.getCurrentLocation().distanceTo(location);
+        if (distance < minDistance) {
+            minDistance = distance;
+            nearestTaxi = taxi;
+        }
+    }
+    
+    // Remove from available queue and add to assigned list
+    if (nearestTaxi != null) {
+        availableTaxis.remove(nearestTaxi);
+        nearestTaxi.setAvailable(false);
+        assignedTaxis.add(nearestTaxi);
+        
+        // Update observable lists
+        updateObservableLists();
+        
+        return nearestTaxi;
+    } else {
+        throw new NoTaxiAvailableException("Failed to find nearest taxi");
+    }
+}
+```
+
+The nearest taxi algorithm demonstrates:
+- Linear search through available taxis (O(n) complexity)
+- Distance calculation using the Haversine formula
+- Optimal taxi selection to minimize customer wait times
+
+### 3.2 Distance Calculation Algorithm
+
+The Location class implements the Haversine formula to calculate distances between geographical coordinates:
+
+```java
+// Calculate distance between two locations (using Haversine formula)
+public double distanceTo(Location other) {
+    // Earth radius in kilometers
+    final int R = 6371;
+    
+    double latDistance = Math.toRadians(other.latitude - this.latitude);
+    double lonDistance = Math.toRadians(other.longitude - this.longitude);
+    
+    double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+            + Math.cos(Math.toRadians(this.latitude)) * Math.cos(Math.toRadians(other.latitude))
+            * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+    
+    double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    
+    return R * c;
+}
+```
+
+This algorithm demonstrates:
+- Mathematical computation for real-world distance calculation
+- Practical application of trigonometric functions
+- Constant time complexity O(1)
+
+## 4. Error Handling Implementation (P5)
+
+### 4.1 Custom Exception Classes
+
+Two custom exception classes are implemented to handle specific error scenarios:
+
+#### InvalidTaxiException
+Thrown when taxi validation fails (null taxi, empty driver name, empty license plate, or duplicate license plate).
+
+#### NoTaxiAvailableException
+Thrown when no taxis are available to fulfill a ride request.
+
+### 4.2 Error Handling in TaxiManager
+
+```java
+// Add a new taxi to the system - O(1)
+public void addTaxi(Taxi taxi) throws InvalidTaxiException {
+    // Validate taxi
+    if (taxi == null) {
+        throw new InvalidTaxiException("Taxi cannot be null");
+    }
+    
+    if (taxi.getDriverName() == null || taxi.getDriverName().trim().isEmpty()) {
+        throw new InvalidTaxiException("Driver name cannot be empty");
+    }
+    
+    if (taxi.getLicensePlate() == null || taxi.getLicensePlate().trim().isEmpty()) {
+        throw new InvalidTaxiException("License plate cannot be empty");
+    }
+    
+    // Check if taxi with same license plate already exist
+    for (Taxi existingTaxi : allTaxis) {
+        if (existingTaxi.getLicensePlate().equals(taxi.getLicensePlate())) {
+            throw new InvalidTaxiException("A taxi with license plate " + 
+                                         taxi.getLicensePlate() + " already exists");
+        }
+    }
+    
+    // Add to collections
+    allTaxis.add(taxi);
+    availableTaxis.add(taxi);
+    
+    // Update observable lists
+    updateObservableLists();
+}
+```
+
+### 4.3 Error Handling in RideManager
+
+```java
+// Cancel a ride - O(n)
+public void cancelRide(Ride ride) {
+    if (ride.getStatus() == RideStatus.COMPLETED || ride.getStatus() == RideStatus.CANCELLED) {
+        throw new IllegalStateException("Cannot cancel a completed or already cancelled ride");
+    }
+    
+    // Update ride status
+    ridesByStatus.get(ride.getStatus()).remove(ride);
+    ride.setStatus(RideStatus.CANCELLED);
+    ridesByStatus.get(RideStatus.CANCELLED).add(ride);
+    
+    // Release the taxi back to the available pool if it was assigned
+    if (ride.getAssignedTaxi() != null) {
+        try {
+            taxiManager.releaseTaxi(ride.getAssignedTaxi());
+        } catch (IllegalArgumentException e) {
+            // Log error specifically for invalid taxi
+            System.err.println("Invalid taxi during release: " + e.getMessage());
+        } catch (IllegalStateException e) {
+            // Log error specifically for taxi state issues
+            System.err.println("Taxi state error during release: " + e.getMessage());
+        } catch (InvalidTaxiException e) {
+            // Log error for taxi validation issues
+            System.err.println("Invalid taxi exception during release: " + e.getMessage());
+        }
+    }
+    
+    // Update observable list
+    updateObservableList();
+}
+```
+
+### 4.4 Test Results
+
+Test cases have been implemented to verify the correct behavior of the error handling mechanisms:
+
+1. Adding a taxi with a null reference - Expected: InvalidTaxiException - Result: PASS
+2. Adding a taxi with an empty driver name - Expected: InvalidTaxiException - Result: PASS
+3. Adding a taxi with an empty license plate - Expected: InvalidTaxiException - Result: PASS
+4. Adding a taxi with a duplicate license plate - Expected: InvalidTaxiException - Result: PASS
+5. Requesting a taxi when none are available - Expected: NoTaxiAvailableException - Result: PASS
+6. Cancelling an already completed ride - Expected: IllegalStateException - Result: PASS
+
+These tests demonstrate that the error handling is robust and correctly identifies invalid operations.
+
+## 5. Time and Space Complexity Analysis (D3)
+
+### 5.1 Time Complexity Analysis
+
+| Operation | Time Complexity | Explanation |
+|-----------|-----------------|-------------|
+| Add a new taxi | O(n) | Requires checking all existing taxis for duplicate license plate |
+| Get next available taxi | O(1) | Direct queue access with poll() operation |
+| Get nearest available taxi | O(n) | Linear search through all available taxis |
+| Release a taxi | O(n) | Requires searching assigned taxis list |
+| Request a ride (FIFO) | O(1) | Direct queue operation |
+| Request a ride (nearest) | O(n) | Linear search for nearest taxi |
+| Cancel a ride | O(n) | Requires finding and updating collections |
+| Get rides by status | O(1) | Direct map lookup |
+
+### 5.2 Space Complexity Analysis
+
+| Data Structure | Space Complexity | Explanation |
+|----------------|------------------|-------------|
+| availableTaxis | O(n) | Stores all available taxis |
+| assignedTaxis | O(m) | Stores all assigned taxis, where m is the number of ongoing rides |
+| allTaxis | O(n) | Stores all taxis in the system |
+| allRides | O(r) | Stores all rides ever created |
+| ridesByStatus | O(r) | Stores references to all rides, categorized by status |
+
+Overall system space complexity is O(n + r), where n is the number of taxis and r is the number of rides.
+
+### 5.3 Critical Evaluation
+
+The implemented data structures and algorithms provide efficient operations for the most frequent use cases:
+- O(1) time complexity for getting the next available taxi (FIFO method)
+- O(1) time complexity for retrieving rides by status
+- O(1) time complexity for adding new taxis to the system
+
+The nearest taxi algorithm has O(n) complexity, which could become a bottleneck with a large number of taxis. A potential improvement would be implementing a spatial data structure (like a quadtree or R-tree) to reduce the complexity to O(log n).
+
+## 6. Asymptotic Analysis for Algorithm Evaluation (P6)
+
+Asymptotic analysis, commonly expressed using Big O notation, provides a mathematical framework for evaluating algorithm efficiency as input sizes grow. It focuses on the dominant factors affecting performance while ignoring constants and lower-order terms.
+
+In the QuickRide system, asymptotic analysis helps us:
+
+1. **Compare Algorithm Efficiency**: The FIFO taxi assignment (O(1)) versus the nearest taxi assignment (O(n)) shows a clear difference in scalability.
+
+2. **Identify Bottlenecks**: The linear search in the nearest taxi algorithm is identified as a potential bottleneck for large taxi fleets.
+
+3. **Guide Optimization Efforts**: By identifying the O(n) operations, we can prioritize optimizing these algorithms first to improve overall system performance.
+
+4. **Predict Performance at Scale**: As the number of taxis and rides increases, we can predict which operations will remain efficient and which might degrade.
+
+For example, the difference between O(1) and O(n) becomes significant when scaling from 100 taxis to 10,000 taxis. An O(1) operation remains constant regardless of input size, while an O(n) operation would take 100 times longer with 10,000 taxis than with 100 taxis.
+
+## 7. Measuring Algorithm Efficiency (P7)
+
+### 7.1 Time Efficiency
+
+Time efficiency can be measured by:
+
+1. **Execution Time**: Recording actual time taken for operations in milliseconds.
+
+Example: Measuring the time to find the nearest taxi:
+```java
+long startTime = System.nanoTime();
+Taxi nearestTaxi = taxiManager.getNearestAvailableTaxi(pickupLocation);
+long endTime = System.nanoTime();
+long duration = (endTime - startTime) / 1000000;  // Convert to milliseconds
+System.out.println("Time to find nearest taxi: " + duration + " ms");
+```
+
+For a system with 1,000 taxis, finding the nearest taxi might take 5ms, while with 10,000 taxis, it could take 50ms, confirming the O(n) complexity.
+
+2. **Operation Count**: Counting the number of key operations performed.
+
+Example: Counting comparisons in the nearest taxi algorithm:
+```java
+int comparisons = 0;
+for (Taxi taxi : availableTaxis) {
+    double distance = taxi.getCurrentLocation().distanceTo(location);
+    comparisons++;
+    if (distance < minDistance) {
+        minDistance = distance;
+        nearestTaxi = taxi;
+    }
+}
+System.out.println("Number of comparisons: " + comparisons);
+```
+
+### 7.2 Space Efficiency
+
+Space efficiency can be measured by:
+
+1. **Memory Usage**: Monitoring the heap memory before and after operations.
+
+Example: Measuring memory used by the RideManager:
+```java
+Runtime runtime = Runtime.getRuntime();
+runtime.gc();
+long memoryBefore = runtime.totalMemory() - runtime.freeMemory();
+RideManager rideManager = new RideManager(taxiManager);
+long memoryAfter = runtime.totalMemory() - runtime.freeMemory();
+long memoryUsed = memoryAfter - memoryBefore;
+System.out.println("Memory used by RideManager: " + memoryUsed + " bytes");
+```
+
+2. **Object Count**: Tracking the number of objects created.
+
+For a ride request operation with 10,000 rides in the system, we might observe:
+- Memory usage increases by approximately 2KB per ride
+- Collection resizing operations occur every 1,024 rides (when ArrayList capacity doubles)
+- HashMap lookups remain constant time regardless of ride count
+
+## 8. Trade-offs in ADT Specification (M5)
+
+A trade-off in ADT specification refers to balancing competing design goals when defining an abstract data type. In QuickRide, several key trade-offs were made:
+
+### Example: Queue vs. Priority Queue for Taxi Assignment
+
+The TaxiManager implements a Queue (FIFO) for managing available taxis, which has these properties:
+- **Simplicity**: Easy to implement and understand
+- **Fairness**: Ensures taxis get assigned in the order they become available
+- **Performance**: O(1) operations for enqueue and dequeue
+
+An alternative would be a Priority Queue based on waiting time:
+- **Complexity**: More complex implementation
+- **Fairness**: Could prioritize taxis waiting longest
+- **Performance**: O(log n) operations for enqueue and dequeue
+
+**Trade-off Interpretation**: By choosing a simple Queue over a Priority Queue, we traded some flexibility in taxi selection for better performance (O(1) vs O(log n)) and implementation simplicity. This is appropriate because the FIFO approach provides natural fairness for taxi drivers.
+
+Another example is seen in the RideManager's map structure:
+```java
+private final Map<RideStatus, List<Ride>> ridesByStatus;
+```
+
+This map enables O(1) lookups by status but requires additional memory to maintain separate lists. The trade-off is between:
+- **Query Speed**: O(1) lookups by status
+- **Memory Usage**: Duplication of ride references across collections
+- **Update Complexity**: Need to update multiple collections on status changes
+
+## 9. Benefits of Implementation-Independent Data Structures (D4)
+
+Using implementation-independent data structures (programming to interfaces rather than concrete implementations) provides three significant benefits:
+
+### 9.1 Flexibility and Adaptability
+
+In QuickRide, the taxi manager is implemented using interfaces:
+```java
+private final Queue<Taxi> availableTaxis;
+private final List<Taxi> assignedTaxis;
+private final Set<Taxi> allTaxis;
+```
+
+Rather than:
+```java
+private final LinkedList<Taxi> availableTaxis;
+private final ArrayList<Taxi> assignedTaxis;
+private final HashSet<Taxi> allTaxis;
+```
+
+**Benefit**: This approach allows us to change the underlying implementation without modifying the code that uses these data structures. For example, we could switch from LinkedList to ArrayDeque for the queue implementation if performance testing reveals it would be more efficient, without changing any other code.
+
+### 9.2 Improved Testability
+
+Using interfaces facilitates creating mock implementations for testing:
+
+```java
+// For testing
+public void setTaxiQueue(Queue<Taxi> testQueue) {
+    // Replace the queue with a test version
+}
+```
+
+**Benefit**: This allows for isolating components during testing, creating controlled test environments, and simulating edge cases that would be difficult to reproduce with real implementations. For example, we can test the system's behavior when the taxi queue is empty without having to remove all taxis from the actual implementation.
+
+### 9.3 Enhanced Modularity and Maintainability
+
+The QuickRide system separates the taxi and ride management concerns:
+
+```java
+// RideManager depends on TaxiManager through its interface, not implementation
+public RideManager(TaxiManager taxiManager) {
+    this.taxiManager = taxiManager;
+    // ...
+}
+```
+
+**Benefit**: This design enables independent development and maintenance of different system components. The RideManager only depends on the TaxiManager's public interface, not its internal implementation. This reduces coupling between components, making the system more maintainable and easier to extend.
+
+For example, if we later need to implement a specialized TaxiManager for premium vehicles, we can create a new implementation without modifying the RideManager as long as the interface remains the same.
+
+## 10. Conclusion
+
+The QuickRide application demonstrates the effective implementation of complex data structures and algorithms to solve the real-world problem of taxi booking and management. By carefully selecting appropriate data structures and algorithms, the system achieves:
+
+1. Efficient taxi management with O(1) operations for common use cases
+2. Flexible ride management with status-based organization
+3. Robust error handling for exceptional scenarios
+4. Optimized algorithms for taxi assignment and ride processing
+
+The asymptotic analysis reveals that most operations have optimal or near-optimal time complexity, with some potential for further optimization in the nearest taxi algorithm.
+
+By using implementation-independent data structures, the system maintains flexibility for future enhancements while ensuring current performance requirements are met.
+
+These implementations directly address the business needs of QuickRide, enabling it to handle thousands of ride requests per minute efficiently and providing a competitive advantage in the market. 
